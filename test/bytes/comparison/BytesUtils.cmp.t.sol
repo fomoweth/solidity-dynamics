@@ -71,12 +71,6 @@ contract BytesUtilsCmpTest is BaseTest {
     //  Fuzz
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function test_fuzz_cmp_hasExactDomain(bytes memory x, bytes memory y) public pure {
-        int256 z = BytesUtils.cmp(x, y);
-        assertTrue(z == int256(-1) || z == int256(0) || z == int256(1));
-        assertEq(z == int256(0), keccak256(x) == keccak256(y));
-    }
-
     function test_fuzz_cmp_reflexive(bytes memory x) public pure {
         assertEq(BytesUtils.cmp(x, x), int256(0));
     }
@@ -91,11 +85,17 @@ contract BytesUtilsCmpTest is BaseTest {
         if (xy == yz && xy != int256(0)) assertEq(BytesUtils.cmp(x, z), xy);
     }
 
+    function test_fuzz_cmp(bytes memory x, bytes memory y) public pure {
+        int256 z = BytesUtils.cmp(x, y);
+        assertTrue(z == int256(-1) || z == int256(0) || z == int256(1), "cmp escaped the {-1, 0, 1} domain");
+        assertEq(z == int256(0), keccak256(x) == keccak256(y));
+    }
+
     // ─────────────────────────────────────────────────────────────────────────────
     //  Differential
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function test_fuzz_diff_cmp(bytes memory x, bytes memory y) public pure {
+    function test_fuzz_cmp_differential(bytes memory x, bytes memory y) public pure {
         assertEq(BytesUtils.cmp(x, y), referenceCmp(x, y));
     }
 

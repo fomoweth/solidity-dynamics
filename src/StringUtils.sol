@@ -4,25 +4,361 @@ pragma solidity ^0.8.25;
 /// @title StringUtils
 /// @author fomoweth
 library StringUtils {
+    /// @dev Thrown when a value cannot be represented within the requested hexadecimal byte length.
+    error InsufficientHexStringLength();
+
     /*///////////////////////////////////////////////////////////////////////////////////////////////////////
                                             CONVERSION
     ///////////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    function toString(uint256 value) internal pure returns (string memory result) {}
+    /// @notice Converts an unsigned integer to its ASCII decimal string representation.
+    /// @param value The unsigned integer to convert.
+    /// @return result The decimal string representation.
+    function toString(uint256 value) internal pure returns (string memory result) {
+        assembly ("memory-safe") {
+            // Cache the end of the fixed output region.
+            result := add(mload(0x40), 0x80)
+            let ptr := result
+            let stride := not(0x00) // -1 modulo 2²⁵⁶
 
-    function toString(int256 value) internal pure returns (string memory result) {}
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
 
+            // Advance the free-memory pointer.
+            mstore(0x40, add(ptr, 0x20))
+
+            // Encode each significant decimal digit backward.
+            // The first iteration always emits one digit, representing zero as `0`.
+            for { let remaining := value } 0x01 {} {
+                ptr := add(ptr, stride)
+                mstore8(ptr, add(0x30, mod(remaining, 0x0a)))
+
+                remaining := div(remaining, 0x0a)
+                if iszero(remaining) { break }
+            }
+
+            // Derive the output length.
+            let length := sub(result, ptr)
+
+            // Position the string header before the digits.
+            result := sub(ptr, 0x20)
+
+            // Store the output length.
+            mstore(result, length)
+        }
+    }
+
+    /// @notice Converts a signed integer to its ASCII decimal string representation, prefixed with `-` when negative.
+    /// @param value The signed integer to convert.
+    /// @return result The decimal string representation.
+    function toString(int256 value) internal pure returns (string memory result) {
+        assembly ("memory-safe") {
+            // Cache the end of the fixed output region.
+            result := add(mload(0x40), 0x80)
+            let ptr := result
+            let stride := not(0x00) // -1 modulo 2²⁵⁶
+            let remaining := value
+
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
+
+            // Advance the free-memory pointer.
+            mstore(0x40, add(ptr, 0x20))
+
+            // Convert negative values to their unsigned magnitude.
+            if slt(value, 0x00) { remaining := add(not(value), 0x01) }
+
+            // Encode each significant decimal digit backward.
+            // The first iteration always emits one digit, representing zero as `0`.
+            for {} 0x01 {} {
+                ptr := add(ptr, stride)
+                mstore8(ptr, add(0x30, mod(remaining, 0x0a)))
+
+                remaining := div(remaining, 0x0a)
+                if iszero(remaining) { break }
+            }
+
+            // Prefix a minus sign for negative values.
+            if slt(value, 0x00) {
+                ptr := add(ptr, stride)
+                mstore8(ptr, 0x2d) // `-`
+            }
+
+            // Derive the output length.
+            let length := sub(result, ptr)
+
+            // Position the string header before the optional sign and digits.
+            result := sub(ptr, 0x20)
+
+            // Store the output length.
+            mstore(result, length)
+        }
+    }
+
+    /// @notice Converts an unsigned integer to a fixed-width ASCII hexadecimal string representation.
+    /// @dev Encodes exactly two lowercase hexadecimal digits per requested byte, left-padding with zero digits.
+    ///      Reverts with {InsufficientHexStringLength} if the value does not fit within the requested width.
+    /// @param value The unsigned integer to convert.
+    /// @param byteLength The fixed number of bytes to encode.
+    /// @param prefixed Whether to prepend the `0x` prefix.
+    /// @return result The hexadecimal string representation.
     function toHexString(uint256 value, uint256 byteLength, bool prefixed)
         internal
         pure
         returns (string memory result)
-    {}
+    {
+        assembly ("memory-safe") {
+            // Cache the end of the fixed output region.
+            result := add(mload(0x40), and(add(shl(0x01, byteLength), 0x42), not(0x1f)))
+            let ptr := result
+            let guard := sub(ptr, shl(0x01, byteLength))
+            let stride := not(0x01) // -2 modulo 2²⁵⁶
+            let remaining := value
 
-    function toHexString(uint256 value, bool prefixed) internal pure returns (string memory result) {}
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
 
-    function toHexString(address value, bool prefixed, bool checksummed) internal pure returns (string memory result) {}
+            // Advance the free-memory pointer.
+            mstore(0x40, add(ptr, 0x20))
 
-    function toHexString(bytes memory buffer, bool prefixed) internal pure returns (string memory result) {}
+            // Store the hexadecimal lookup table (`0123456789abcdef`) in scratch space.
+            mstore(0x0f, 0x30313233343536373839616263646566)
+
+            // Encode exactly `byteLength` bytes backward as lowercase hexadecimal digits.
+            // The first iteration always emits one byte, representing zero as `00`.
+            for {} xor(ptr, guard) {} {
+                ptr := add(ptr, stride)
+                mstore8(add(ptr, 0x01), mload(and(remaining, 0x0f)))
+                mstore8(ptr, mload(and(shr(0x04, remaining), 0x0f)))
+                remaining := shr(0x08, remaining)
+            }
+
+            // A non-zero remainder indicates insufficient width.
+            if remaining {
+                mstore(0x00, 0xd4a3f1bc) // InsufficientHexStringLength()
+                revert(0x1c, 0x04)
+            }
+
+            // Derive the optional prefix length and output length.
+            let prefixLength := shl(0x01, iszero(iszero(prefixed)))
+            let length := add(sub(result, ptr), prefixLength)
+
+            // Position the string header before the optional prefix and digits.
+            result := sub(ptr, add(prefixLength, 0x20))
+
+            // Store the optional `0x` prefix, if requested.
+            if prefixLength { mstore(add(result, 0x02), 0x3078) }
+
+            // Store the output length.
+            mstore(result, length)
+        }
+    }
+
+    /// @dev Variant of {toHexString-uint256-uint256-bool} with `prefixed` set to `true`.
+    function toHexString(uint256 value, uint256 byteLength) internal pure returns (string memory result) {
+        return toHexString(value, byteLength, true);
+    }
+
+    /// @dev Variant of {toHexString-uint256-uint256-bool} with `prefixed` set to `false`.
+    function toHexStringNoPrefix(uint256 value, uint256 byteLength) internal pure returns (string memory result) {
+        return toHexString(value, byteLength, false);
+    }
+
+    /// @notice Converts an unsigned integer to a minimal-width ASCII hexadecimal string representation.
+    /// @dev Encodes two lowercase hexadecimal digits per significant byte, so the digit count is always
+    ///      even and zero is encoded as `00` rather than `0`.
+    /// @param value The unsigned integer to convert.
+    /// @param prefixed Whether to prepend the `0x` prefix.
+    /// @return result The hexadecimal string representation.
+    function toHexString(uint256 value, bool prefixed) internal pure returns (string memory result) {
+        assembly ("memory-safe") {
+            // Cache the end of the fixed output region.
+            result := add(mload(0x40), 0x80)
+            let ptr := result
+            let stride := not(0x01) // -2 modulo 2²⁵⁶
+
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
+
+            // Advance the free-memory pointer.
+            mstore(0x40, add(ptr, 0x20))
+
+            // Store the hexadecimal lookup table (`0123456789abcdef`) in scratch space.
+            mstore(0x0f, 0x30313233343536373839616263646566)
+
+            // Encode each significant byte backward as two hexadecimal digits.
+            // The first iteration always emits one byte, representing zero as `00`.
+            for { let remaining := value } 0x01 {} {
+                ptr := add(ptr, stride)
+                mstore8(add(ptr, 0x01), mload(and(remaining, 0x0f)))
+                mstore8(ptr, mload(and(shr(0x04, remaining), 0x0f)))
+
+                remaining := shr(0x08, remaining)
+                if iszero(remaining) { break }
+            }
+
+            // Derive the optional prefix length and output length.
+            let prefixLength := shl(0x01, iszero(iszero(prefixed)))
+            let length := add(sub(result, ptr), prefixLength)
+
+            // Position the string header before the optional prefix and digits.
+            result := sub(ptr, add(prefixLength, 0x20))
+
+            // Store the optional `0x` prefix, if requested.
+            if prefixLength { mstore(add(result, 0x02), 0x3078) }
+
+            // Store the output length.
+            mstore(result, length)
+        }
+    }
+
+    /// @dev Variant of {toHexString-uint256-bool} with `prefixed` set to `true`.
+    function toHexString(uint256 value) internal pure returns (string memory result) {
+        return toHexString(value, true);
+    }
+
+    /// @dev Variant of {toHexString-uint256-bool} with `prefixed` set to `false`.
+    function toHexStringNoPrefix(uint256 value) internal pure returns (string memory result) {
+        return toHexString(value, false);
+    }
+
+    /// @notice Converts an address to its ASCII hexadecimal string representation.
+    /// @dev Encodes exactly 40 hexadecimal digits representing 20-bytes, and optionally
+    ///      applies the https://eips.ethereum.org/EIPS/eip-55[EIP-55] checksum casing.
+    /// @param value The address to convert.
+    /// @param prefixed Whether to prepend the `0x` prefix.
+    /// @param checksummed Whether to apply the EIP-55 checksum casing.
+    /// @return result The hexadecimal string representation.
+    function toHexString(address value, bool prefixed, bool checksummed) internal pure returns (string memory result) {
+        assembly ("memory-safe") {
+            // Cache the end of the fixed output region.
+            let ptr := add(mload(0x40), 0x60)
+            let guard := sub(ptr, 0x28)
+            let stride := not(0x01) // -2 modulo 2²⁵⁶
+
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
+
+            // Advance the free-memory pointer.
+            mstore(0x40, add(ptr, 0x20))
+
+            // Store the hexadecimal lookup table (`0123456789abcdef`) in scratch space.
+            mstore(0x0f, 0x30313233343536373839616263646566)
+
+            // Encode each address byte backward as two hexadecimal digits.
+            for { let remaining := value } xor(ptr, guard) { remaining := shr(0x08, remaining) } {
+                ptr := add(ptr, stride)
+                mstore8(add(ptr, 0x01), mload(and(remaining, 0x0f)))
+                mstore8(ptr, mload(and(shr(0x04, remaining), 0x0f)))
+            }
+
+            if checksummed {
+                // Apply EIP-55 casing using the hash of the lowercase hexadecimal digits.
+                let hash := keccak256(ptr, 0x28)
+                let caseDelta := not(0x1f) // -32 modulo 2²⁵⁶
+
+                for { let i := 0x00 } lt(i, 0x28) { i := add(i, 0x01) } {
+                    let char := byte(0x00, mload(add(ptr, i)))
+
+                    // Only `a` through `f` have a distinct uppercase form.
+                    if iszero(lt(char, 0x61)) {
+                        // Even indices select the high hash nibble; odd indices select the low nibble.
+                        let nibble := and(shr(mul(sub(0x01, and(i, 0x01)), 0x04), byte(shr(0x01, i), hash)), 0x0f)
+                        if iszero(lt(nibble, 0x08)) { mstore8(add(ptr, i), add(char, caseDelta)) }
+                    }
+                }
+            }
+
+            // Derive the optional prefix length.
+            let prefixLength := shl(0x01, iszero(iszero(prefixed)))
+
+            // Position the string header before the optional prefix and digits.
+            result := sub(ptr, add(prefixLength, 0x20))
+
+            // Store the optional `0x` prefix, if requested.
+            if prefixLength { mstore(add(result, 0x02), 0x3078) }
+
+            // Store the output length.
+            mstore(result, add(prefixLength, 0x28))
+        }
+    }
+
+    /// @dev Variant of {toHexString-address-bool-bool} with `prefixed` set to `true` and `checksummed` set to `false`.
+    function toHexString(address value) internal pure returns (string memory result) {
+        return toHexString(value, true, false);
+    }
+
+    /// @dev Variant of {toHexString-address-bool-bool} with both `prefixed` and `checksummed` set to `true`.
+    function toHexStringChecksummed(address value) internal pure returns (string memory result) {
+        return toHexString(value, true, true);
+    }
+
+    /// @dev Variant of {toHexString-address-bool-bool} with both `prefixed` and `checksummed` set to `false`.
+    function toHexStringNoPrefix(address value) internal pure returns (string memory result) {
+        return toHexString(value, false, false);
+    }
+
+    /// @notice Converts a byte array to its ASCII hexadecimal string representation.
+    /// @dev Encodes exactly two lowercase hexadecimal digits per byte.
+    /// @param buffer The byte array to convert.
+    /// @param prefixed Whether to prepend the `0x` prefix.
+    /// @return result The hexadecimal string representation.
+    function toHexString(bytes memory buffer, bool prefixed) internal pure returns (string memory result) {
+        assembly ("memory-safe") {
+            // Construct the output directly at the current free-memory pointer.
+            result := mload(0x40)
+            let ptr := add(result, 0x20)
+
+            // Load the buffer length.
+            let bufferLength := mload(buffer)
+
+            // Derive the buffer byte range.
+            let cursor := add(buffer, 0x20)
+            let end := add(cursor, bufferLength)
+
+            // Derive the optional prefix length.
+            let prefixLength := shl(0x01, iszero(iszero(prefixed)))
+
+            // Store the hexadecimal lookup table (`0123456789abcdef`) in scratch space.
+            mstore(0x0f, 0x30313233343536373839616263646566)
+
+            // Write the optional prefix and advance to the hexadecimal digit region.
+            if prefixLength {
+                mstore8(ptr, 0x30) // `0`
+                mstore8(add(ptr, 0x01), 0x78) // `x`
+                ptr := add(ptr, prefixLength)
+            }
+
+            // Encode each input byte as two hexadecimal digits.
+            for {} lt(cursor, end) {} {
+                let char := byte(0x00, mload(cursor))
+                mstore8(ptr, mload(shr(0x04, char)))
+                mstore8(add(ptr, 0x01), mload(and(0x0f, char)))
+
+                cursor := add(cursor, 0x01)
+                ptr := add(ptr, 0x02)
+            }
+
+            // Store the output length, including the optional prefix.
+            mstore(result, add(shl(0x01, bufferLength), prefixLength))
+
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
+
+            // Advance the free-memory pointer.
+            mstore(0x40, and(add(ptr, 0x3f), not(0x1f)))
+        }
+    }
+
+    /// @dev Variant of {toHexString-bytes-bool} with `prefixed` set to `true`.
+    function toHexString(bytes memory buffer) internal pure returns (string memory result) {
+        return toHexString(buffer, true);
+    }
+
+    /// @dev Variant of {toHexString-bytes-bool} with `prefixed` set to `false`.
+    function toHexStringNoPrefix(bytes memory buffer) internal pure returns (string memory result) {
+        return toHexString(buffer, false);
+    }
 
     /*///////////////////////////////////////////////////////////////////////////////////////////////////////
                                             FORMATTING

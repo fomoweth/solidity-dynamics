@@ -79,7 +79,7 @@ contract StringUtilsEqTest is Test {
     // 	Differential
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function test_fuzz_diff_eq(string memory x, string memory y) public pure {
+    function test_fuzz_eq_differential(string memory x, string memory y) public pure {
         assertEq(StringUtils.eq(x, y), referenceEq(x, y));
     }
 
