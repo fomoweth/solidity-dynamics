@@ -79,7 +79,7 @@ contract BytesUtilsEqTest is Test {
     // 	Differential
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function test_fuzz_diff_eq(bytes memory x, bytes memory y) public pure {
+    function test_fuzz_eq_differential(bytes memory x, bytes memory y) public pure {
         assertEq(BytesUtils.eq(x, y), referenceEq(x, y));
     }
 
