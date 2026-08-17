@@ -155,24 +155,159 @@ library BytesUtils {
         return indexOf(subject, needle, 0);
     }
 
+    /// @notice Finds the byte index of the last occurrence of a byte sequence within a byte array, searching
+    ///         backward from a specified byte offset.
+    /// @dev An empty byte sequence matches at the lesser of the starting offset and the byte array's length.
+    /// @param subject The byte array to search within.
+    /// @param needle The byte sequence to search for.
+    /// @param offset The zero-based byte offset from which to begin searching backward.
+    /// @return result The byte index of the last match, or `type(uint256).max` if no match exists.
     function lastIndexOf(bytes memory subject, bytes memory needle, uint256 offset)
         internal
         pure
         returns (uint256 result)
-    {}
+    {
+        assembly ("memory-safe") {
+            // Initialize the output to the not-found sentinel.
+            result := not(0x00)
 
+            // Load the input byte lengths.
+            let subjectLength := mload(subject)
+            let needleLength := mload(needle)
+
+            // Search only when the needle fits within the subject.
+            if iszero(gt(needleLength, subjectLength)) {
+                // Clamp the requested offset to the final position at which the complete needle can begin.
+                let maxOffset := sub(subjectLength, needleLength)
+                if gt(offset, maxOffset) { offset := maxOffset }
+
+                // Advance to the input byte data.
+                subject := add(subject, 0x20)
+                needle := add(needle, 0x20)
+
+                let stride := not(0x00) // -1 modulo 2²⁵⁶
+
+                // Derive the exclusive search boundary.
+                let guard := add(subject, stride)
+
+                // Derive the shift used to compare the significant leading bytes.
+                let maskShift := mul(shl(0x03, sub(0x20, needleLength)), lt(needleLength, 0x20))
+
+                // Needles of at least 32-bytes additionally require a full-length hash comparison.
+                let requiresHash := iszero(lt(needleLength, 0x20))
+                let needleWord := mload(needle)
+                let needleHash := 0x00
+                if requiresHash { needleHash := keccak256(needle, needleLength) }
+
+                // Examine each valid candidate position from right to left.
+                for { let cursor := add(subject, offset) } gt(cursor, guard) { cursor := add(cursor, stride) } {
+                    let matched := iszero(shr(maskShift, xor(mload(cursor), needleWord)))
+
+                    if and(matched, requiresHash) {
+                        matched := eq(keccak256(cursor, needleLength), needleHash)
+                    }
+
+                    if matched {
+                        result := sub(cursor, subject)
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    /// @dev Variant of {lastIndexOf-bytes-bytes-uint256} with `offset` set to `type(uint256).max`.
     function lastIndexOf(bytes memory subject, bytes memory needle) internal pure returns (uint256 result) {
         return lastIndexOf(subject, needle, type(uint256).max);
     }
 
-    function indicesOf(bytes memory subject, bytes memory needle) internal pure returns (uint256[] memory result) {}
+    /// @notice Finds the byte indices of every non-overlapping occurrence of a byte sequence within a byte array.
+    /// @dev An empty byte sequence matches at every byte boundary, including the boundary after the final byte.
+    ///      Returns an empty array if no match exists.
+    /// @param subject The byte array to search within.
+    /// @param needle The byte sequence to search for.
+    /// @return result The byte indices of all matches in ascending order.
+    function indicesOf(bytes memory subject, bytes memory needle) internal pure returns (uint256[] memory result) {
+        assembly ("memory-safe") {
+            // Construct the output directly at the current free-memory pointer.
+            result := mload(0x40)
+            let ptr := add(result, 0x20)
+
+            // Load the input byte lengths.
+            let subjectLength := mload(subject)
+            let needleLength := mload(needle)
+
+            switch needleLength
+            case 0x00 {
+                // An empty sequence matches at every byte boundary.
+                for { let index := 0x00 } iszero(gt(index, subjectLength)) { index := add(index, 0x01) } {
+                    mstore(ptr, index)
+                    ptr := add(ptr, 0x20)
+                }
+            }
+            default {
+                // Search only when the needle fits within the subject.
+                if iszero(gt(needleLength, subjectLength)) {
+                    // Advance to the input byte data.
+                    subject := add(subject, 0x20)
+                    needle := add(needle, 0x20)
+
+                    // Derive the exclusive search boundary.
+                    let guard := add(add(subject, sub(subjectLength, needleLength)), 0x01)
+
+                    // Derive the shift used to compare the significant leading bytes.
+                    let maskShift := mul(shl(0x03, sub(0x20, needleLength)), lt(needleLength, 0x20))
+
+                    // Needles of at least 32-bytes additionally require a full-length hash comparison.
+                    let requiresHash := iszero(lt(needleLength, 0x20))
+                    let needleWord := mload(needle)
+                    let needleHash := 0x00
+                    if requiresHash { needleHash := keccak256(needle, needleLength) }
+
+                    // Examine candidate positions from left to right.
+                    for { let cursor := subject } lt(cursor, guard) {} {
+                        let matched := iszero(shr(maskShift, xor(mload(cursor), needleWord)))
+
+                        if and(matched, requiresHash) {
+                            matched := eq(keccak256(cursor, needleLength), needleHash)
+                        }
+
+                        if matched {
+                            // Record the match index and advance past the needle to exclude overlaps.
+                            mstore(ptr, sub(cursor, subject))
+                            ptr := add(ptr, 0x20)
+                            cursor := add(cursor, needleLength)
+                            continue
+                        }
+
+                        cursor := add(cursor, 0x01)
+                    }
+                }
+            }
+
+            // Store the output length.
+            mstore(result, shr(0x05, sub(ptr, add(result, 0x20))))
+
+            // Advance the free-memory pointer.
+            mstore(0x40, ptr)
+        }
+    }
 
     /*///////////////////////////////////////////////////////////////////////////////////////////////////////
                                             INSPECTION
     ///////////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    function contains(bytes memory subject, bytes memory needle, uint256 offset) internal pure returns (bool result) {}
+    /// @notice Determines whether a byte array contains a byte sequence at or after a specified byte offset.
+    /// @dev An empty byte sequence matches if the starting offset is less than or equal to the byte array's length.
+    /// @param subject The byte array to search within.
+    /// @param needle The byte sequence to search for.
+    /// @param offset The zero-based byte offset from which to begin searching.
+    /// @return result Whether a match exists at or after the specified offset.
+    function contains(bytes memory subject, bytes memory needle, uint256 offset) internal pure returns (bool result) {
+        return indexOf(subject, needle, offset) != type(uint256).max;
+    }
 
+    /// @dev Variant of {contains-bytes-bytes-uint256} with `offset` set to `0`.
     function contains(bytes memory subject, bytes memory needle) internal pure returns (bool result) {
         return contains(subject, needle, 0);
     }

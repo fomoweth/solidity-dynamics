@@ -84,9 +84,7 @@ contract StringUtilsSliceTest is BaseTest {
 
         string memory name = accountId.slice(nameOffset, versionOffset - nameOffset);
         assertEq(name, "vortex");
-
-        name = string.concat(vm.toUppercase(name.slice(0, 1)), name.slice(1));
-        assertEq(name, "Vortex");
+        assertEq(capitalize(name), "Vortex");
 
         string memory version = accountId.slice(++versionOffset);
         assertEq(version, "0.0.1-alpha");

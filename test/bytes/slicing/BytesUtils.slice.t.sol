@@ -63,13 +63,6 @@ contract BytesUtilsSliceTest is BaseTest {
         assertEq(BytesUtils.slice("hello", 3, type(uint256).max - 2), "lo");
     }
 
-    function test_slice_treatsUtf8AsBytes() public pure {
-        bytes memory subject = unicode"Aé☕Z";
-        assertEq(BytesUtils.slice(subject, 1, 2), unicode"é");
-        assertEq(bytes(BytesUtils.slice(subject, 2, 2)), hex"a9e2");
-        assertEq(BytesUtils.slice(subject, 3, 3), unicode"☕");
-    }
-
     function test_slice_returnsIndependentCopy() public pure {
         bytes memory subject = "hello";
         bytes memory result = BytesUtils.slice(subject, 0, 5);

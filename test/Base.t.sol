@@ -14,6 +14,18 @@ abstract contract BaseTest is Test {
         return true;
     }
 
+    function coalesce(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        assembly ("memory-safe") {
+            z := or(x, mul(y, iszero(x)))
+        }
+    }
+
+    function ternary(bool condition, uint256 x, uint256 y) internal pure returns (uint256 z) {
+        assembly ("memory-safe") {
+            z := xor(x, mul(xor(x, y), iszero(condition)))
+        }
+    }
+
     function max(uint256 x, uint256 y) internal pure returns (uint256 z) {
         assembly ("memory-safe") {
             z := xor(x, mul(xor(x, y), gt(y, x)))
