@@ -2,35 +2,21 @@
 pragma solidity ^0.8.0;
 
 import {BytesUtils} from "src/BytesUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {BytesUtilsTest} from "test/Base.t.sol";
 
-contract BytesUtilsEndsWithTest is BaseTest {
+contract BytesUtilsEndsWithTest is BytesUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function test_endsWith_emptySubject() public pure {
-        assertFalse(BytesUtils.endsWith("", "a"));
-    }
-
-    function test_endsWith_emptyNeedle() public pure {
-        assertTrue(BytesUtils.endsWith("abc", ""));
-        assertTrue(BytesUtils.endsWith("", ""));
-    }
-
-    function test_endsWith_needleLongerThanSubject() public pure {
-        assertFalse(BytesUtils.endsWith("ab", "abc"));
-        assertFalse(BytesUtils.endsWith("bc", "abc"));
-    }
-
-    function test_endsWith_needleEqualsSubject() public pure {
-        assertTrue(BytesUtils.endsWith("abc", "abc"));
-    }
-
-    function test_endsWith_properSuffix() public pure {
+    function test_endsWith_basic() public pure {
         assertTrue(BytesUtils.endsWith("hello world", "world"));
         assertFalse(BytesUtils.endsWith("hello world", "hello"));
         assertFalse(BytesUtils.endsWith("hello world", "worlD"));
+    }
+
+    function test_endsWith_exactMatch() public pure {
+        assertTrue(BytesUtils.endsWith("abc", "abc"));
     }
 
     function test_endsWith_singleChar() public pure {
@@ -38,8 +24,21 @@ contract BytesUtilsEndsWithTest is BaseTest {
         assertFalse(BytesUtils.endsWith("abc", "b"));
     }
 
-    function test_endsWith_bothEmpty() public pure {
+    function test_endsWith_emptySubjectAndNeedle() public pure {
         assertTrue(BytesUtils.endsWith("", ""));
+    }
+
+    function test_endsWith_emptySubject() public pure {
+        assertFalse(BytesUtils.endsWith("", "a"));
+    }
+
+    function test_endsWith_emptyNeedle() public pure {
+        assertTrue(BytesUtils.endsWith("abc", ""));
+    }
+
+    function test_endsWith_needleLongerThanSubject() public pure {
+        assertFalse(BytesUtils.endsWith("ab", "abc"));
+        assertFalse(BytesUtils.endsWith("bc", "abc"));
     }
 
     function test_endsWith_longNeedle() public pure {
@@ -52,7 +51,7 @@ contract BytesUtilsEndsWithTest is BaseTest {
     }
 
     function test_endsWith_arbitraryBytes() public pure {
-        bytes memory subject = bytes(allBytes());
+        bytes memory subject = allBytes();
         assertTrue(BytesUtils.endsWith(subject, subject));
         assertTrue(BytesUtils.endsWith(subject, abi.encodePacked(uint8(0xff))));
 
@@ -66,11 +65,11 @@ contract BytesUtilsEndsWithTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_endsWith_emptyNeedle(bytes memory subject) public pure {
-        assertTrue(BytesUtils.endsWith(subject, ""));
+        assertTrue(BytesUtils.endsWith(subject, ""), "empty needle was not recognized as suffix");
     }
 
     function test_fuzz_endsWith_reflexive(bytes memory subject) public pure {
-        assertTrue(BytesUtils.endsWith(subject, subject));
+        assertTrue(BytesUtils.endsWith(subject, subject), "subject was not recognized as its own suffix");
     }
 
     function test_fuzz_endsWith_sliceIsSuffix(bytes memory subject, uint256 offset) public pure {
@@ -78,7 +77,7 @@ contract BytesUtilsEndsWithTest is BaseTest {
         assertTrue(BytesUtils.endsWith(subject, suffix), "sliced suffix was not recognized");
     }
 
-    function test_fuzz_endsWith_constructed(bytes memory prefix, bytes memory suffix) public pure {
+    function test_fuzz_endsWith_concat(bytes memory prefix, bytes memory suffix) public pure {
         bytes memory subject = bytes.concat(prefix, suffix);
         assertTrue(BytesUtils.endsWith(subject, suffix), "concatenation does not end with suffix");
     }
@@ -88,6 +87,7 @@ contract BytesUtilsEndsWithTest is BaseTest {
             uint256 offset = bytes(subject).length - bytes(needle).length;
             bytes memory suffix = BytesUtils.slice(subject, offset);
             assertEq(suffix, needle, "recognized suffix does not match trailing bytes");
+
             uint256 index = BytesUtils.lastIndexOf(subject, needle);
             assertEq(index, offset, "recognized suffix was not found at trailing offset");
         }
@@ -103,12 +103,11 @@ contract BytesUtilsEndsWithTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_endsWith_differential(bytes memory subject, bytes memory needle) public pure {
-        assertEq(BytesUtils.endsWith(subject, needle), referenceEndsWith(subject, needle));
-    }
-
-    function test_fuzz_endsWith_differential_constructed(bytes memory prefix, bytes memory needle) public pure {
-        bytes memory subject = bytes.concat(prefix, needle);
-        assertEq(BytesUtils.endsWith(subject, needle), referenceEndsWith(subject, needle));
+        assertEq(
+            BytesUtils.endsWith(subject, needle),
+            referenceEndsWith(subject, needle),
+            "result differs from reference implementation"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Test} from "forge-std/Test.sol";
 import {BytesUtils} from "src/BytesUtils.sol";
+import {BytesUtilsTest} from "test/Base.t.sol";
 
-contract BytesUtilsEqTest is Test {
+contract BytesUtilsEqTest is BytesUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     // 	Unit
     // ─────────────────────────────────────────────────────────────────────────────
@@ -60,19 +60,23 @@ contract BytesUtilsEqTest is Test {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_eq_reflexive(bytes memory x) public pure {
-        assertTrue(BytesUtils.eq(x, x));
+        assertTrue(BytesUtils.eq(x, x), "equality is not reflexive");
+    }
+
+    function test_fuzz_eq_transitive(bytes memory x) public pure {
+        bytes memory y = x;
+        bytes memory z = y;
+        assertTrue(BytesUtils.eq(x, y), "first equality does not hold");
+        assertTrue(BytesUtils.eq(y, z), "second equality does not hold");
+        assertTrue(BytesUtils.eq(x, z), "equality is not transitive");
     }
 
     function test_fuzz_eq_symmetric(bytes memory x, bytes memory y) public pure {
-        assertEq(BytesUtils.eq(x, y), BytesUtils.eq(y, x));
+        assertEq(BytesUtils.eq(x, y), BytesUtils.eq(y, x), "equality is not symmetric");
     }
 
-    function test_fuzz_eq_transitive(bytes memory x, bytes memory y, bytes memory z) public pure {
-        if (BytesUtils.eq(x, y) && BytesUtils.eq(y, z)) assertTrue(BytesUtils.eq(x, z));
-    }
-
-    function test_fuzz_eq(bytes memory x, bytes memory y) public pure {
-        assertEq(BytesUtils.eq(x, y), keccak256(x) == keccak256(y));
+    function test_fuzz_eq_matchesKeccak256(bytes memory x, bytes memory y) public pure {
+        assertEq(BytesUtils.eq(x, y), keccak256(x) == keccak256(y), "equality differs from keccak256 comparison");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -80,7 +84,7 @@ contract BytesUtilsEqTest is Test {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_eq_differential(bytes memory x, bytes memory y) public pure {
-        assertEq(BytesUtils.eq(x, y), referenceEq(x, y));
+        assertEq(BytesUtils.eq(x, y), referenceEq(x, y), "result differs from reference implementation");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

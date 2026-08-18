@@ -2,20 +2,23 @@
 pragma solidity ^0.8.0;
 
 import {StringUtils} from "src/StringUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {StringUtilsTest} from "test/Base.t.sol";
 
-contract StringUtilsContainsTest is BaseTest {
+contract StringUtilsContainsTest is StringUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function test_contains_emptyNeedle_alwaysTrue() public pure {
-        assertTrue(StringUtils.contains("abc", ""));
-        assertTrue(StringUtils.contains("", ""));
+    function test_contains_emptySubject() public pure {
+        assertFalse(StringUtils.contains("", "a"));
     }
 
-    function test_contains_emptySubject_alwaysFalse() public pure {
-        assertFalse(StringUtils.contains("", "a"));
+    function test_contains_emptyNeedle() public pure {
+        assertTrue(StringUtils.contains("abc", ""));
+    }
+
+    function test_contains_emptySubjectAndNeedle() public pure {
+        assertTrue(StringUtils.contains("", ""));
     }
 
     function test_contains_singleChar() public pure {
@@ -103,13 +106,13 @@ contract StringUtilsContainsTest is BaseTest {
         public
         pure
     {
-        if (StringUtils.contains(subject, needle, offset = bound(offset, 0, bytes(subject).length))) {
+        if (StringUtils.contains(subject, needle, bound(offset, 0, bytes(subject).length))) {
             assertTrue(StringUtils.contains(subject, needle, 0), "match from offset was not found from zero");
         }
     }
 
     function test_fuzz_contains(string memory subject, string memory needle) public pure {
-        assertEq(StringUtils.contains(subject, needle), vm.contains(subject, needle));
+        assertEq(StringUtils.contains(subject, needle), vm.contains(subject, needle), "result differs from vm.contains");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -117,11 +120,19 @@ contract StringUtilsContainsTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_contains_differential(string memory subject, string memory needle, uint256 offset) public pure {
-        assertEq(StringUtils.contains(subject, needle, offset), referenceContains(subject, needle, offset));
+        assertEq(
+            StringUtils.contains(subject, needle, offset),
+            referenceContains(subject, needle, offset),
+            "result differs from reference implementation"
+        );
     }
 
     function test_fuzz_contains_differential(string memory subject, string memory needle) public pure {
-        assertEq(StringUtils.contains(subject, needle), referenceContains(subject, needle, 0));
+        assertEq(
+            StringUtils.contains(subject, needle),
+            referenceContains(subject, needle, 0),
+            "result differs from reference implementation"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

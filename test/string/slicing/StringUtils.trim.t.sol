@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {StringUtils} from "src/StringUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {StringUtilsTest} from "test/Base.t.sol";
 
-contract StringUtilsTrimTest is BaseTest {
+contract StringUtilsTrimTest is StringUtilsTest {
     string internal constant WS = " \t\n\x0b\x0c\r ";
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -144,55 +144,55 @@ contract StringUtilsTrimTest is BaseTest {
 
     function test_fuzz_trim_idempotent(string memory subject) public pure {
         string memory once = StringUtils.trim(subject);
-        assertEq(StringUtils.trim(once), once);
+        assertEq(StringUtils.trim(once), once, "repeated trim changed result");
     }
 
     function test_fuzz_trimStart_idempotent(string memory subject) public pure {
         string memory once = StringUtils.trimStart(subject);
-        assertEq(StringUtils.trimStart(once), once);
+        assertEq(StringUtils.trimStart(once), once, "repeated trimStart changed result");
     }
 
     function test_fuzz_trimEnd_idempotent(string memory subject) public pure {
         string memory once = StringUtils.trimEnd(subject);
-        assertEq(StringUtils.trimEnd(once), once);
+        assertEq(StringUtils.trimEnd(once), once, "repeated trimEnd changed result");
     }
 
     function test_fuzz_trim(string memory subject) public pure {
-        assertEq(StringUtils.trim(subject), vm.trim(subject));
+        assertEq(StringUtils.trim(subject), vm.trim(subject), "result differs from vm.trim");
     }
 
     function test_fuzz_trimStart(string memory subject) public pure {
         bytes memory buffer = bytes(StringUtils.trimStart(subject));
-        if (buffer.length != 0) assertFalse(isWhitespace(buffer[0]));
+        if (buffer.length != 0) assertFalse(isWhitespace(buffer[0]), "leading whitespace remains");
     }
 
     function test_fuzz_trimEnd(string memory subject) public pure {
         bytes memory buffer = bytes(StringUtils.trimEnd(subject));
-        if (buffer.length != 0) assertFalse(isWhitespace(buffer[buffer.length - 1]));
+        if (buffer.length != 0) assertFalse(isWhitespace(buffer[buffer.length - 1]), "trailing whitespace remains");
     }
 
     function test_fuzz_trim_compose(bytes memory buffer, uint256 seed) public pure {
         (string memory subject, string memory expected) = compose(buffer, seed, true, true);
-        string memory actual = StringUtils.trim(subject);
+        string memory result = StringUtils.trim(subject);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from constructed expectation");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_trimStart_compose(bytes memory buffer, uint256 seed) public pure {
         (string memory subject, string memory expected) = compose(buffer, seed, true, false);
-        string memory actual = StringUtils.trimStart(subject);
+        string memory result = StringUtils.trimStart(subject);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from constructed expectation");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_trimEnd_compose(bytes memory buffer, uint256 seed) public pure {
         (string memory subject, string memory expected) = compose(buffer, seed, false, true);
-        string memory actual = StringUtils.trimEnd(subject);
+        string memory result = StringUtils.trimEnd(subject);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from constructed expectation");
+        assertMemoryInvariants(result);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -201,26 +201,26 @@ contract StringUtilsTrimTest is BaseTest {
 
     function test_fuzz_trim_differential(string memory subject) public pure {
         string memory expected = referenceTrim(subject, true, true);
-        string memory actual = StringUtils.trim(subject);
+        string memory result = StringUtils.trim(subject);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_trimStart_differential(string memory subject) public pure {
         string memory expected = referenceTrim(subject, true, false);
-        string memory actual = StringUtils.trimStart(subject);
+        string memory result = StringUtils.trimStart(subject);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_trimEnd_differential(string memory subject) public pure {
         string memory expected = referenceTrim(subject, false, true);
-        string memory actual = StringUtils.trimEnd(subject);
+        string memory result = StringUtils.trimEnd(subject);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

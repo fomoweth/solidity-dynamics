@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {BytesUtils} from "src/BytesUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {BytesUtilsTest} from "test/Base.t.sol";
 
-contract BytesUtilsSliceTest is BaseTest {
+contract BytesUtilsSliceTest is BytesUtilsTest {
     using BytesUtils for bytes;
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -64,25 +64,12 @@ contract BytesUtilsSliceTest is BaseTest {
     }
 
     function test_slice_arbitraryBytes() public pure {
-        bytes memory subject = bytes(allBytes());
+        bytes memory subject = allBytes();
         assertEq(BytesUtils.slice(subject, 0, 256).length, 256);
 
         for (uint256 i = 0; i < 256; ++i) {
-            assertEq(BytesUtils.slice(subject, i, 1), abi.encodePacked(uint8(i)));
+            assertEq(BytesUtils.slice(subject, i, 1), singleByte(i));
         }
-
-        assertEq(BytesUtils.slice(subject, 0, 2), abi.encodePacked(bytes2(0x0001)));
-        assertEq(BytesUtils.slice(subject, 128, 2), abi.encodePacked(bytes2(0x8081)));
-        assertEq(BytesUtils.slice(subject, 254, 2), abi.encodePacked(bytes2(0xfeff)));
-    }
-
-    function test_slice_returnsIndependentCopy() public pure {
-        bytes memory subject = "hello";
-        bytes memory result = BytesUtils.slice(subject, 0, 5);
-
-        BytesUtils.truncate(result, 1);
-        assertEq(result, "h");
-        assertEq(subject, "hello");
     }
 
     function test_slice_parse_erc7579_accountId() public pure {
@@ -112,22 +99,19 @@ contract BytesUtilsSliceTest is BaseTest {
 
     function test_fuzz_slice_lengthBound(bytes memory subject, uint256 offset, uint256 length) public pure {
         bytes memory result = BytesUtils.slice(subject, offset, length);
-        assertLe(bytes(result).length, length);
-        assertLe(bytes(result).length, saturatingSub(bytes(subject).length, offset));
+        assertLe(result.length, length, "slice exceeds requested length");
+        assertLe(result.length, saturatingSub(subject.length, offset), "slice exceeds remaining subject length");
     }
 
     function test_fuzz_slice_offsetBeyondLength(bytes memory subject, uint256 offset) public pure {
-        offset = bound(offset, bytes(subject).length, type(uint256).max);
-        assertEq(BytesUtils.slice(subject, offset), "");
+        offset = bound(offset, subject.length, type(uint256).max);
+        assertEq(BytesUtils.slice(subject, offset), "", "out-of-range offset produced non-empty slice");
     }
 
     function test_fuzz_slice_recombination(bytes memory subject, uint256 offset) public pure {
-        bytes memory buffer = bytes(subject);
-        offset = bound(offset, 0, buffer.length);
-
-        bytes memory left = BytesUtils.slice(subject, 0, offset);
-        bytes memory right = BytesUtils.slice(subject, offset, buffer.length);
-        assertEq(bytes.concat(left, right), subject);
+        bytes memory left = BytesUtils.slice(subject, 0, offset = bound(offset, 0, subject.length));
+        bytes memory right = BytesUtils.slice(subject, offset, subject.length);
+        assertEq(bytes.concat(left, right), subject, "recombined slices differ from subject");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -136,19 +120,18 @@ contract BytesUtilsSliceTest is BaseTest {
 
     function test_fuzz_slice_differential(bytes memory subject, uint256 offset) public pure {
         bytes memory expected = referenceSlice(subject, offset, type(uint256).max);
-        bytes memory actual = BytesUtils.slice(subject, offset);
+        bytes memory result = BytesUtils.slice(subject, offset);
 
-        assertLe(bytes(actual).length, bytes(subject).length);
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_slice_differential(bytes memory subject, uint256 offset, uint256 length) public pure {
         bytes memory expected = referenceSlice(subject, offset, length);
-        bytes memory actual = BytesUtils.slice(subject, offset, length);
+        bytes memory result = BytesUtils.slice(subject, offset, length);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

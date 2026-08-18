@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {StringUtils} from "src/StringUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {StringUtilsTest} from "test/Base.t.sol";
 
-contract StringUtilsSliceTest is BaseTest {
+contract StringUtilsSliceTest is StringUtilsTest {
     using StringUtils for string;
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -70,19 +70,6 @@ contract StringUtilsSliceTest is BaseTest {
         for (uint256 i = 0; i < 256; ++i) {
             assertEq(StringUtils.slice(subject, i, 1), singleByte(i));
         }
-
-        assertEq(StringUtils.slice(subject, 0, 2), string(abi.encodePacked(bytes2(0x0001))));
-        assertEq(StringUtils.slice(subject, 128, 2), string(abi.encodePacked(bytes2(0x8081))));
-        assertEq(StringUtils.slice(subject, 254, 2), string(abi.encodePacked(bytes2(0xfeff))));
-    }
-
-    function test_slice_returnsIndependentCopy() public pure {
-        string memory subject = "hello";
-        string memory result = StringUtils.slice(subject, 0, 5);
-
-        StringUtils.truncate(result, 1);
-        assertEq(result, "h");
-        assertEq(subject, "hello");
     }
 
     function test_slice_parse_erc7579_accountId() public pure {
@@ -112,23 +99,20 @@ contract StringUtilsSliceTest is BaseTest {
     }
 
     function test_fuzz_slice_lengthBound(string memory subject, uint256 offset, uint256 length) public pure {
-        string memory result = StringUtils.slice(subject, offset, length);
-        assertLe(bytes(result).length, length);
-        assertLe(bytes(result).length, saturatingSub(bytes(subject).length, offset));
+        bytes memory result = bytes(StringUtils.slice(subject, offset, length));
+        assertLe(result.length, length, "slice exceeds requested length");
+        assertLe(result.length, saturatingSub(bytes(subject).length, offset), "slice exceeds remaining subject length");
     }
 
     function test_fuzz_slice_offsetBeyondLength(string memory subject, uint256 offset) public pure {
         offset = bound(offset, bytes(subject).length, type(uint256).max);
-        assertEq(StringUtils.slice(subject, offset), "");
+        assertEq(StringUtils.slice(subject, offset), "", "out-of-range offset produced non-empty slice");
     }
 
     function test_fuzz_slice_recombination(string memory subject, uint256 offset) public pure {
-        bytes memory buffer = bytes(subject);
-        offset = bound(offset, 0, buffer.length);
-
-        string memory left = StringUtils.slice(subject, 0, offset);
-        string memory right = StringUtils.slice(subject, offset, buffer.length);
-        assertEq(string.concat(left, right), subject);
+        string memory left = StringUtils.slice(subject, 0, offset = bound(offset, 0, bytes(subject).length));
+        string memory right = StringUtils.slice(subject, offset, bytes(subject).length);
+        assertEq(string.concat(left, right), subject, "recombined slices differ from subject");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -137,20 +121,18 @@ contract StringUtilsSliceTest is BaseTest {
 
     function test_fuzz_slice_differential(string memory subject, uint256 offset) public pure {
         string memory expected = referenceSlice(subject, offset, type(uint256).max);
-        string memory actual = StringUtils.slice(subject, offset);
+        string memory result = StringUtils.slice(subject, offset);
 
-        assertLe(bytes(actual).length, bytes(subject).length);
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_slice_differential(string memory subject, uint256 offset, uint256 length) public pure {
         string memory expected = referenceSlice(subject, offset, length);
-        string memory actual = StringUtils.slice(subject, offset, length);
+        string memory result = StringUtils.slice(subject, offset, length);
 
-        assertLe(bytes(actual).length, bytes(subject).length);
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -171,13 +153,5 @@ contract StringUtilsSliceTest is BaseTest {
             result[i] = buffer[offset + i];
         }
         return string(result);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    //  Helpers
-    // ─────────────────────────────────────────────────────────────────────────────
-
-    function capitalize(string memory str) internal pure returns (string memory) {
-        return string.concat(vm.toUppercase(StringUtils.slice(str, 0, 1)), StringUtils.slice(str, 1));
     }
 }

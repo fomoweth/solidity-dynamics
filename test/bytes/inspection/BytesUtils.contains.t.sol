@@ -2,20 +2,23 @@
 pragma solidity ^0.8.0;
 
 import {BytesUtils} from "src/BytesUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {BytesUtilsTest} from "test/Base.t.sol";
 
-contract BytesUtilsContainsWithTest is BaseTest {
+contract BytesUtilsContainsWithTest is BytesUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function test_contains_emptyNeedle_alwaysTrue() public pure {
-        assertTrue(BytesUtils.contains("abc", ""));
-        assertTrue(BytesUtils.contains("", ""));
+    function test_contains_emptySubject() public pure {
+        assertFalse(BytesUtils.contains("", "a"));
     }
 
-    function test_contains_emptySubject_alwaysFalse() public pure {
-        assertFalse(BytesUtils.contains("", "a"));
+    function test_contains_emptyNeedle() public pure {
+        assertTrue(BytesUtils.contains("abc", ""));
+    }
+
+    function test_contains_emptySubjectAndNeedle() public pure {
+        assertTrue(BytesUtils.contains("", ""));
     }
 
     function test_contains_singleChar() public pure {
@@ -100,7 +103,7 @@ contract BytesUtilsContainsWithTest is BaseTest {
         public
         pure
     {
-        if (BytesUtils.contains(subject, needle, offset = bound(offset, 0, bytes(subject).length))) {
+        if (BytesUtils.contains(subject, needle, bound(offset, 0, bytes(subject).length))) {
             assertTrue(BytesUtils.contains(subject, needle, 0), "match from offset was not found from zero");
         }
     }
@@ -110,11 +113,19 @@ contract BytesUtilsContainsWithTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_contains_differential(bytes memory subject, bytes memory needle, uint256 offset) public pure {
-        assertEq(BytesUtils.contains(subject, needle, offset), referenceContains(subject, needle, offset));
+        assertEq(
+            BytesUtils.contains(subject, needle, offset),
+            referenceContains(subject, needle, offset),
+            "result differs from reference implementation"
+        );
     }
 
     function test_fuzz_contains_differential(bytes memory subject, bytes memory needle) public pure {
-        assertEq(BytesUtils.contains(subject, needle), referenceContains(subject, needle, 0));
+        assertEq(
+            BytesUtils.contains(subject, needle),
+            referenceContains(subject, needle, 0),
+            "result differs from reference implementation"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

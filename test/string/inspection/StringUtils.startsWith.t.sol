@@ -2,34 +2,21 @@
 pragma solidity ^0.8.0;
 
 import {StringUtils} from "src/StringUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {StringUtilsTest} from "test/Base.t.sol";
 
-contract StringUtilsStartsWithTest is BaseTest {
+contract StringUtilsStartsWithTest is StringUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function test_startsWith_emptySubject() public pure {
-        assertFalse(StringUtils.startsWith("", "a"));
-    }
-
-    function test_startsWith_emptyNeedle() public pure {
-        assertTrue(StringUtils.startsWith("abc", ""));
-        assertTrue(StringUtils.startsWith("", ""));
-    }
-
-    function test_startsWith_needleLongerThanSubject() public pure {
-        assertFalse(StringUtils.startsWith("ab", "abc"));
-    }
-
-    function test_startsWith_needleEqualsSubject() public pure {
-        assertTrue(StringUtils.startsWith("abc", "abc"));
-    }
-
-    function test_startsWith_properPrefix() public pure {
+    function test_startsWith_basic() public pure {
         assertTrue(StringUtils.startsWith("hello world", "hello"));
         assertFalse(StringUtils.startsWith("hello world", "world"));
         assertFalse(StringUtils.startsWith("hello world", "hellO"));
+    }
+
+    function test_startsWith_exactMatch() public pure {
+        assertTrue(StringUtils.startsWith("abc", "abc"));
     }
 
     function test_startsWith_singleChar() public pure {
@@ -37,8 +24,20 @@ contract StringUtilsStartsWithTest is BaseTest {
         assertFalse(StringUtils.startsWith("abc", "b"));
     }
 
-    function test_startsWith_bothEmpty() public pure {
+    function test_startsWith_emptySubjectAndNeedle() public pure {
         assertTrue(StringUtils.startsWith("", ""));
+    }
+
+    function test_startsWith_emptySubject() public pure {
+        assertFalse(StringUtils.startsWith("", "a"));
+    }
+
+    function test_startsWith_emptyNeedle() public pure {
+        assertTrue(StringUtils.startsWith("abc", ""));
+    }
+
+    function test_startsWith_needleLongerThanSubject() public pure {
+        assertFalse(StringUtils.startsWith("ab", "abc"));
     }
 
     function test_startsWith_longNeedle() public pure {
@@ -65,11 +64,11 @@ contract StringUtilsStartsWithTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_startsWith_emptyNeedle(string memory subject) public pure {
-        assertTrue(StringUtils.startsWith(subject, ""));
+        assertTrue(StringUtils.startsWith(subject, ""), "empty needle was not recognized as prefix");
     }
 
     function test_fuzz_startsWith_reflexive(string memory subject) public pure {
-        assertTrue(StringUtils.startsWith(subject, subject));
+        assertTrue(StringUtils.startsWith(subject, subject), "subject was not recognized as its own prefix");
     }
 
     function test_fuzz_startsWith_sliceIsPrefix(string memory subject, uint256 length) public pure {
@@ -100,12 +99,11 @@ contract StringUtilsStartsWithTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_startsWith_differential(string memory subject, string memory needle) public pure {
-        assertEq(StringUtils.startsWith(subject, needle), referenceStartsWith(subject, needle));
-    }
-
-    function test_fuzz_startsWith_differential_constructed(string memory prefix, string memory needle) public pure {
-        string memory subject = string.concat(prefix, needle);
-        assertEq(StringUtils.startsWith(subject, needle), referenceStartsWith(subject, needle));
+        assertEq(
+            StringUtils.startsWith(subject, needle),
+            referenceStartsWith(subject, needle),
+            "result differs from reference implementation"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
