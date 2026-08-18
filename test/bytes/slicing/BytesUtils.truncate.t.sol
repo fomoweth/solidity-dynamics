@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {BytesUtils} from "src/BytesUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {BytesUtilsTest} from "test/Base.t.sol";
 
-contract BytesUtilsTruncateTest is BaseTest {
+contract BytesUtilsTruncateTest is BytesUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
@@ -60,37 +60,39 @@ contract BytesUtilsTruncateTest is BaseTest {
 
     function test_fuzz_truncate_idempotent(bytes memory subject, uint256 length) public pure {
         bytes memory once = BytesUtils.truncate(subject, length);
-        assertEq(BytesUtils.truncate(once, length), once);
+        assertEq(BytesUtils.truncate(once, length), once, "repeated truncation changed result");
     }
 
     function test_fuzz_truncate_isLeadingSlice(bytes memory subject, uint256 length) public pure {
         bytes memory expected = BytesUtils.slice(subject, 0, length);
-        bytes memory actual = BytesUtils.truncate(subject, length);
-        assertEq(actual, expected);
+        bytes memory result = BytesUtils.truncate(subject, length);
+        assertEq(result, expected, "truncated result differs from leading slice");
     }
 
     function test_fuzz_truncate_lengthBound(bytes memory subject, uint256 length) public pure {
         uint256 expectedLength = min(length, bytes(subject).length);
         bytes memory result = BytesUtils.truncate(subject, length);
-        assertEq(bytes(result).length, expectedLength);
+        assertEq(result.length, expectedLength, "truncated length is incorrect");
     }
 
     function test_fuzz_truncate_prefixPreserved(bytes memory subject, uint256 length) public pure {
         length = bound(length, 0, bytes(subject).length);
-        assertEq(BytesUtils.truncate(subject, length), subject);
+        bytes memory expected = BytesUtils.slice(subject, 0, length);
+        bytes memory result = BytesUtils.truncate(subject, length);
+        assertEq(result, expected, "truncation did not preserve leading bytes");
     }
 
     function test_fuzz_truncate_beyondLength_noOp(bytes memory subject, uint256 length) public pure {
         length = bound(length, bytes(subject).length, type(uint256).max);
-        assertEq(BytesUtils.truncate(subject, length), subject);
+        assertEq(BytesUtils.truncate(subject, length), subject, "oversized truncation changed subject");
     }
 
     function test_fuzz_truncate(bytes calldata subject, uint256 length) public pure {
         uint256 expectedLength = min(length, bytes(subject).length);
         bytes memory result = BytesUtils.truncate(subject, length);
 
-        assertEq(bytes(result).length, expectedLength);
-        assertEq(result, subject[:expectedLength]);
+        assertEq(result.length, expectedLength, "truncated length is incorrect");
+        assertEq(result, subject[:expectedLength], "truncated content is incorrect");
         assertMemoryInvariants(result);
     }
 
@@ -100,10 +102,10 @@ contract BytesUtilsTruncateTest is BaseTest {
 
     function test_fuzz_truncate_differential(bytes memory subject, uint256 length) public pure {
         bytes memory expected = referenceTruncate(subject, length);
-        bytes memory actual = BytesUtils.truncate(subject, length);
+        bytes memory result = BytesUtils.truncate(subject, length);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

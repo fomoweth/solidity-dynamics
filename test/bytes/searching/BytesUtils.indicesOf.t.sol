@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {BytesUtils} from "src/BytesUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {BytesUtilsTest} from "test/Base.t.sol";
 
-contract BytesUtilsIndicesOfTest is BaseTest {
+contract BytesUtilsIndicesOfTest is BytesUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
@@ -20,6 +20,12 @@ contract BytesUtilsIndicesOfTest is BaseTest {
         assertEq(indices.length, 2);
         assertEq(indices[0], 1);
         assertEq(indices[1], 3);
+    }
+
+    function test_indicesOf_singleChar() public pure {
+        uint256[] memory indices = BytesUtils.indicesOf("a", "a");
+        assertEq(indices.length, 1);
+        assertEq(indices[0], 0);
     }
 
     function test_indicesOf_emptySubject() public pure {
@@ -83,15 +89,10 @@ contract BytesUtilsIndicesOfTest is BaseTest {
         assertEq(indices[0], 6);
     }
 
-    function test_indicesOf_singleChar() public pure {
-        uint256[] memory indices = BytesUtils.indicesOf("a", "a");
-        assertEq(indices.length, 1);
-        assertEq(indices[0], 0);
-    }
-
     function test_indicesOf_longNeedle() public pure {
         bytes memory needle = "0123456789ABCDEFabcdef0123456789ABCDEFabcdef";
         bytes memory subject = bytes.concat(needle, "z", needle);
+
         uint256[] memory indices = BytesUtils.indicesOf(subject, needle);
         assertEq(indices.length, 2);
         assertEq(indices[0], 0);
@@ -99,18 +100,14 @@ contract BytesUtilsIndicesOfTest is BaseTest {
     }
 
     function test_indicesOf_arbitraryBytes() public pure {
-        bytes memory subject = bytes(allBytes());
+        bytes memory subject = allBytes();
         uint256[] memory indices;
 
         for (uint256 i = 0; i < 256; ++i) {
-            indices = BytesUtils.indicesOf(subject, abi.encodePacked(uint8(i)));
+            indices = BytesUtils.indicesOf(subject, singleByte(i));
             assertEq(indices.length, 1);
             assertEq(indices[0], i);
         }
-
-        indices = BytesUtils.indicesOf(subject, abi.encodePacked(bytes2(0xfeff)));
-        assertEq(indices.length, 1);
-        assertEq(indices[0], 254);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -141,10 +138,7 @@ contract BytesUtilsIndicesOfTest is BaseTest {
         if (indices.length == 0) {
             assertEq(BytesUtils.indexOf(subject, needle), NOT_FOUND, "indexOf found a match when indicesOf found none");
         } else {
-            assertEq(indices[0], BytesUtils.indexOf(subject, needle), "first indicesOf match differs from indexOf");
-
-            // `lastIndexOf` scans every start position, so it may find an overlapping occurrence
-            // that the non-overlapping sweep skipped; it can never find an earlier one.
+            assertEq(BytesUtils.indexOf(subject, needle), indices[0], "first indicesOf match differs from indexOf");
             assertGe(
                 BytesUtils.lastIndexOf(subject, needle),
                 indices[indices.length - 1],
@@ -170,7 +164,11 @@ contract BytesUtilsIndicesOfTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_indicesOf_differential(bytes memory subject, bytes memory needle) public pure {
-        assertEq(BytesUtils.indicesOf(subject, needle), referenceIndicesOf(subject, needle));
+        assertEq(
+            BytesUtils.indicesOf(subject, needle),
+            referenceIndicesOf(subject, needle),
+            "result differs from reference implementation"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

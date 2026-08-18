@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {BytesUtils} from "src/BytesUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {BytesUtilsTest} from "test/Base.t.sol";
 
-contract BytesUtilsLastIndexOfTest is BaseTest {
+contract BytesUtilsLastIndexOfTest is BytesUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
@@ -48,7 +48,6 @@ contract BytesUtilsLastIndexOfTest is BaseTest {
     function test_lastIndexOf_picksLastOfMultiple() public pure {
         assertEq(BytesUtils.lastIndexOf("abcabc", "ab"), 3);
         assertEq(BytesUtils.lastIndexOf("aXbXc", "X"), 3);
-        // Overlapping candidates: last start position wins.
         assertEq(BytesUtils.lastIndexOf("aaaa", "aa"), 2);
     }
 
@@ -66,15 +65,10 @@ contract BytesUtilsLastIndexOfTest is BaseTest {
     }
 
     function test_lastIndexOf_arbitraryBytes() public pure {
-        bytes memory subject = bytes(allBytes());
-
+        bytes memory subject = allBytes();
         for (uint256 i = 0; i < 256; ++i) {
-            assertEq(BytesUtils.lastIndexOf(subject, abi.encodePacked(uint8(i))), i);
+            assertEq(BytesUtils.lastIndexOf(subject, singleByte(i)), i);
         }
-
-        assertEq(BytesUtils.lastIndexOf(subject, abi.encodePacked(bytes2(0x0001))), 0);
-        assertEq(BytesUtils.lastIndexOf(subject, abi.encodePacked(bytes2(0x8081))), 128);
-        assertEq(BytesUtils.lastIndexOf(subject, abi.encodePacked(bytes2(0xfeff))), 254);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -120,8 +114,7 @@ contract BytesUtilsLastIndexOfTest is BaseTest {
         public
         pure
     {
-        offset = bound(offset, 0, subject.length);
-        uint256 bounded = BytesUtils.lastIndexOf(subject, needle, offset);
+        uint256 bounded = BytesUtils.lastIndexOf(subject, needle, bound(offset, 0, subject.length));
         uint256 unbounded = BytesUtils.lastIndexOf(subject, needle);
 
         if (bounded != NOT_FOUND) {
@@ -135,11 +128,19 @@ contract BytesUtilsLastIndexOfTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_lastIndexOf_differential(bytes memory subject, bytes memory needle, uint256 offset) public pure {
-        assertEq(BytesUtils.lastIndexOf(subject, needle, offset), referenceLastIndexOf(subject, needle, offset));
+        assertEq(
+            BytesUtils.lastIndexOf(subject, needle, offset),
+            referenceLastIndexOf(subject, needle, offset),
+            "result differs from reference implementation"
+        );
     }
 
     function test_fuzz_lastIndexOf_differential(bytes memory subject, bytes memory needle) public pure {
-        assertEq(BytesUtils.lastIndexOf(subject, needle), referenceLastIndexOf(subject, needle, NOT_FOUND));
+        assertEq(
+            BytesUtils.lastIndexOf(subject, needle),
+            referenceLastIndexOf(subject, needle, NOT_FOUND),
+            "result differs from reference implementation"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

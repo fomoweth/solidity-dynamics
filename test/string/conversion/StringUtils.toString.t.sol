@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {StringUtils} from "src/StringUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {StringUtilsTest} from "test/Base.t.sol";
 
-abstract contract StringUtilsToStringTest is BaseTest {
+abstract contract StringUtilsToStringTest is StringUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     //  Reference implementations
     // ─────────────────────────────────────────────────────────────────────────────
@@ -87,16 +87,16 @@ contract StringUtilsToStringUint256Test is StringUtilsToStringTest {
     function test_toString_powerOfTenBoundaries() public pure {
         for (uint256 i = 0; i < 77; ++i) {
             uint256 power = 10 ** i;
-            uint256 powerMinusOne = power - 1;
+            uint256 previous = power - 1;
 
             string memory boundary = StringUtils.toString(power);
-            string memory belowBoundary = StringUtils.toString(powerMinusOne);
+            string memory belowBoundary = StringUtils.toString(previous);
 
-            assertEq(bytes(boundary).length, i + 1);
-            assertEq(bytes(belowBoundary).length, i == 0 ? 1 : i);
+            assertEq(bytes(boundary).length, i + 1, "power of ten has incorrect digit count");
+            assertEq(bytes(belowBoundary).length, i == 0 ? 1 : i, "value below boundary has incorrect digit count");
 
-            assertEq(boundary, vm.toString(power));
-            assertEq(belowBoundary, vm.toString(powerMinusOne));
+            assertEq(boundary, vm.toString(power), "boundary differs from reference encoding");
+            assertEq(belowBoundary, vm.toString(previous), "value below boundary differs from reference encoding");
         }
     }
 
@@ -105,28 +105,26 @@ contract StringUtilsToStringUint256Test is StringUtilsToStringTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_toString_charset(uint256 value) public pure {
-        bytes memory buffer = bytes(StringUtils.toString(value));
-        assertTrue(buffer.length > 0 && buffer.length <= 78);
+        bytes memory result = bytes(StringUtils.toString(value));
+        assertTrue(result.length > 0 && result.length <= 78, "decimal string has invalid length");
 
         uint256 parsed = 0;
-        for (uint256 i = 0; i < buffer.length; ++i) {
-            uint8 char = uint8(buffer[i]);
-            bool isDigit = char >= 0x30 && char <= 0x39;
-            bool isLowercase = char >= 0x61 && char <= 0x66;
-            assertTrue(isDigit || isLowercase);
+        for (uint256 i = 0; i < result.length; ++i) {
+            uint8 char = uint8(result[i]);
+            assertTrue(char >= 0x30 && char <= 0x39, "decimal string contains non-digit character");
             parsed = parsed * 10 + (char - 48);
         }
 
-        assertEq(parsed, value);
-        assertMemoryInvariants(buffer);
+        assertEq(parsed, value, "parsed decimal string differs from value");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_toString_roundtrip(uint256 value) public pure {
-        assertEq(vm.parseUint(StringUtils.toString(value)), value);
+        assertEq(vm.parseUint(StringUtils.toString(value)), value, "decimal string does not round-trip");
     }
 
     function test_fuzz_toString(uint256 value) public pure {
-        assertEq(StringUtils.toString(value), vm.toString(value));
+        assertEq(StringUtils.toString(value), vm.toString(value), "result differs from vm.toString");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -135,10 +133,10 @@ contract StringUtilsToStringUint256Test is StringUtilsToStringTest {
 
     function test_fuzz_toString_differential(uint256 value) public pure {
         string memory expected = toString(value);
-        string memory actual = StringUtils.toString(value);
+        string memory result = StringUtils.toString(value);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 }
 
@@ -182,28 +180,42 @@ contract StringUtilsToStringInt256Test is StringUtilsToStringTest {
     function test_toString_powerOfTenBoundaries() public pure {
         for (uint256 i = 0; i < 77; ++i) {
             int256 power = int256(10 ** i);
-            int256 powerMinusOne = power - 1;
+            int256 previous = power - 1;
 
             string memory positive = StringUtils.toString(power);
-            string memory positiveBelowOne = StringUtils.toString(powerMinusOne);
+            string memory positiveBelow = StringUtils.toString(previous);
 
             string memory negative = StringUtils.toString(-power);
-            string memory negativeAboveOne = StringUtils.toString(-powerMinusOne);
+            string memory negativeAbove = StringUtils.toString(-previous);
 
-            assertEq(bytes(positive).length, i + 1);
-            assertEq(bytes(positiveBelowOne).length, i == 0 ? 1 : i);
+            assertEq(bytes(positive).length, i + 1, "positive boundary has incorrect digit count");
+            assertEq(
+                bytes(positiveBelow).length, i == 0 ? 1 : i, "value below positive boundary has incorrect digit count"
+            );
 
-            assertEq(bytes(negative).length, i + 2); // digits + '-' sign
-            assertEq(bytes(negativeAboveOne).length, i == 0 ? 1 : i + 1); // digits + '-' sign, except zero
+            assertEq(bytes(negative).length, i + 2, "negative boundary has incorrect length");
+            assertEq(
+                bytes(negativeAbove).length, i == 0 ? 1 : i + 1, "value above negative boundary has incorrect length"
+            );
 
-            assertEq(positive, vm.toString(power));
-            assertEq(positiveBelowOne, vm.toString(powerMinusOne));
+            assertEq(positive, vm.toString(power), "positive boundary differs from reference encoding");
+            assertEq(
+                positiveBelow, vm.toString(previous), "value below positive boundary differs from reference encoding"
+            );
 
-            assertEq(negative, vm.toString(-power));
-            assertEq(negativeAboveOne, vm.toString(-powerMinusOne));
+            assertEq(negative, vm.toString(-power), "negative boundary differs from reference encoding");
+            assertEq(
+                negativeAbove, vm.toString(-previous), "value above negative boundary differs from reference encoding"
+            );
 
-            assertEq(vm.parseUint(positive), abs(vm.parseInt(negative)));
-            assertEq(vm.parseUint(positiveBelowOne), abs(vm.parseInt(negativeAboveOne)));
+            assertEq(
+                vm.parseUint(positive), abs(vm.parseInt(negative)), "positive and negative boundary magnitudes differ"
+            );
+            assertEq(
+                vm.parseUint(positiveBelow),
+                abs(vm.parseInt(negativeAbove)),
+                "adjacent positive and negative magnitudes differ"
+            );
         }
     }
 
@@ -212,35 +224,34 @@ contract StringUtilsToStringInt256Test is StringUtilsToStringTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_toString_charset(int256 value) public pure {
-        bytes memory buffer = bytes(StringUtils.toString(value));
-        assertTrue(buffer.length > 0 && buffer.length <= 78);
+        bytes memory result = bytes(StringUtils.toString(value));
+        assertTrue(result.length > 0 && result.length <= 78, "decimal string has invalid length");
 
         if (value < 0) {
-            assertEq(buffer[0], "-");
-            assertTrue(buffer[1] != "0");
-        } else if (buffer.length > 1) {
-            assertTrue(buffer[0] != "0");
+            assertEq(result[0], "-", "negative value is missing minus sign");
+            assertTrue(result[1] != "0", "negative value has leading zero");
+        } else if (result.length > 1) {
+            assertTrue(result[0] != "0", "positive value has leading zero");
         }
 
+        uint256 offset = value < 0 ? 1 : 0;
         uint256 parsed = 0;
-        for (uint256 i = value < 0 ? 1 : 0; i < buffer.length; ++i) {
-            uint8 char = uint8(buffer[i]);
-            bool isDigit = char >= 0x30 && char <= 0x39;
-            bool isLowercase = char >= 0x61 && char <= 0x66;
-            assertTrue(isDigit || isLowercase);
-            parsed = parsed * 10 + (char - 48);
+        for (uint256 i = offset; i < result.length; ++i) {
+            uint8 char = uint8(result[i]);
+            assertTrue(char >= 0x30 && char <= 0x39, "decimal string contains non-digit character");
+            parsed = parsed * 10 + (char - 0x30);
         }
 
-        assertEq(parsed, abs(value));
-        assertMemoryInvariants(buffer);
+        assertEq(parsed, abs(value), "parsed magnitude differs from absolute value");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_toString_roundtrip(int256 value) public pure {
-        assertEq(vm.parseInt(StringUtils.toString(value)), value);
+        assertEq(vm.parseInt(StringUtils.toString(value)), value, "decimal string does not round-trip");
     }
 
     function test_fuzz_toString(int256 value) public pure {
-        assertEq(StringUtils.toString(value), vm.toString(value));
+        assertEq(StringUtils.toString(value), vm.toString(value), "result differs from vm.toString");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -249,9 +260,9 @@ contract StringUtilsToStringInt256Test is StringUtilsToStringTest {
 
     function test_fuzz_toString_differential(int256 value) public pure {
         string memory expected = toString(value);
-        string memory actual = StringUtils.toString(value);
+        string memory result = StringUtils.toString(value);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 }

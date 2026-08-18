@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Test} from "forge-std/Test.sol";
 import {StringUtils} from "src/StringUtils.sol";
+import {StringUtilsTest} from "test/Base.t.sol";
 
-contract StringUtilsEqTest is Test {
+contract StringUtilsEqTest is StringUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     // 	Unit
     // ─────────────────────────────────────────────────────────────────────────────
@@ -60,19 +60,27 @@ contract StringUtilsEqTest is Test {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_eq_reflexive(string memory x) public pure {
-        assertTrue(StringUtils.eq(x, x));
+        assertTrue(StringUtils.eq(x, x), "equality is not reflexive");
+    }
+
+    function test_fuzz_eq_transitive(string memory x) public pure {
+        string memory y = x;
+        string memory z = y;
+        assertTrue(StringUtils.eq(x, y), "first equality does not hold");
+        assertTrue(StringUtils.eq(y, z), "second equality does not hold");
+        assertTrue(StringUtils.eq(x, z), "equality is not transitive");
     }
 
     function test_fuzz_eq_symmetric(string memory x, string memory y) public pure {
-        assertEq(StringUtils.eq(x, y), StringUtils.eq(y, x));
+        assertEq(StringUtils.eq(x, y), StringUtils.eq(y, x), "equality is not symmetric");
     }
 
-    function test_fuzz_eq_transitive(string memory x, string memory y, string memory z) public pure {
-        if (StringUtils.eq(x, y) && StringUtils.eq(y, z)) assertTrue(StringUtils.eq(x, z));
-    }
-
-    function test_fuzz_eq(string memory x, string memory y) public pure {
-        assertEq(StringUtils.eq(x, y), keccak256(bytes(x)) == keccak256(bytes(y)));
+    function test_fuzz_eq_matchesKeccak256(string memory x, string memory y) public pure {
+        assertEq(
+            StringUtils.eq(x, y),
+            keccak256(bytes(x)) == keccak256(bytes(y)),
+            "equality differs from keccak256 comparison"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -80,7 +88,7 @@ contract StringUtilsEqTest is Test {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_eq_differential(string memory x, string memory y) public pure {
-        assertEq(StringUtils.eq(x, y), referenceEq(x, y));
+        assertEq(StringUtils.eq(x, y), referenceEq(x, y), "result differs from reference implementation");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

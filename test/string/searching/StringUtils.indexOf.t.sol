@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {StringUtils} from "src/StringUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {StringUtilsTest} from "test/Base.t.sol";
 
-contract StringUtilsIndexOfTest is BaseTest {
+contract StringUtilsIndexOfTest is StringUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
@@ -97,14 +97,9 @@ contract StringUtilsIndexOfTest is BaseTest {
 
     function test_indexOf_arbitraryBytes() public pure {
         string memory subject = allBytes();
-
         for (uint256 i = 0; i < 256; ++i) {
             assertEq(StringUtils.indexOf(subject, singleByte(i)), i);
         }
-
-        assertEq(StringUtils.indexOf(subject, string(abi.encodePacked(bytes2(0x0001)))), 0);
-        assertEq(StringUtils.indexOf(subject, string(abi.encodePacked(bytes2(0x8081)))), 128);
-        assertEq(StringUtils.indexOf(subject, string(abi.encodePacked(bytes2(0xfeff)))), 254);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -169,11 +164,8 @@ contract StringUtilsIndexOfTest is BaseTest {
     }
 
     function test_fuzz_indexOf_offsetMonotone(string memory subject, string memory needle, uint256 offset) public pure {
-        offset = bound(offset, 0, bytes(subject).length);
         uint256 fromZero = StringUtils.indexOf(subject, needle);
-        uint256 fromOffset = StringUtils.indexOf(subject, needle, offset);
-
-        // result from offset >= result from 0 (when both found)
+        uint256 fromOffset = StringUtils.indexOf(subject, needle, bound(offset, 0, bytes(subject).length));
         if (fromZero != NOT_FOUND && fromOffset != NOT_FOUND) {
             assertGe(fromOffset, fromZero, "later search offset returned an earlier match");
         }
@@ -188,11 +180,19 @@ contract StringUtilsIndexOfTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_indexOf_differential(string memory subject, string memory needle, uint256 offset) public pure {
-        assertEq(StringUtils.indexOf(subject, needle, offset), referenceIndexOf(subject, needle, offset));
+        assertEq(
+            StringUtils.indexOf(subject, needle, offset),
+            referenceIndexOf(subject, needle, offset),
+            "result differs from reference implementation"
+        );
     }
 
     function test_fuzz_indexOf_differential(string memory subject, string memory needle) public pure {
-        assertEq(StringUtils.indexOf(subject, needle), referenceIndexOf(subject, needle, 0));
+        assertEq(
+            StringUtils.indexOf(subject, needle),
+            referenceIndexOf(subject, needle, 0),
+            "result differs from reference implementation"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

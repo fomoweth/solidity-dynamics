@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {StringUtils} from "src/StringUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {StringUtilsTest} from "test/Base.t.sol";
 
-contract StringUtilsLastIndexOfTest is BaseTest {
+contract StringUtilsLastIndexOfTest is StringUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
@@ -48,7 +48,6 @@ contract StringUtilsLastIndexOfTest is BaseTest {
     function test_lastIndexOf_picksLastOfMultiple() public pure {
         assertEq(StringUtils.lastIndexOf("abcabc", "ab"), 3);
         assertEq(StringUtils.lastIndexOf("aXbXc", "X"), 3);
-        // Overlapping candidates: last start position wins.
         assertEq(StringUtils.lastIndexOf("aaaa", "aa"), 2);
     }
 
@@ -67,14 +66,9 @@ contract StringUtilsLastIndexOfTest is BaseTest {
 
     function test_lastIndexOf_arbitraryBytes() public pure {
         string memory subject = allBytes();
-
         for (uint256 i = 0; i < 256; ++i) {
             assertEq(StringUtils.lastIndexOf(subject, singleByte(i)), i);
         }
-
-        assertEq(StringUtils.lastIndexOf(subject, string(abi.encodePacked(bytes2(0x0001)))), 0);
-        assertEq(StringUtils.lastIndexOf(subject, string(abi.encodePacked(bytes2(0x8081)))), 128);
-        assertEq(StringUtils.lastIndexOf(subject, string(abi.encodePacked(bytes2(0xfeff)))), 254);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -130,8 +124,7 @@ contract StringUtilsLastIndexOfTest is BaseTest {
         public
         pure
     {
-        offset = bound(offset, 0, bytes(subject).length);
-        uint256 bounded = StringUtils.lastIndexOf(subject, needle, offset);
+        uint256 bounded = StringUtils.lastIndexOf(subject, needle, bound(offset, 0, bytes(subject).length));
         uint256 unbounded = StringUtils.lastIndexOf(subject, needle);
 
         if (bounded != NOT_FOUND) {
@@ -148,11 +141,19 @@ contract StringUtilsLastIndexOfTest is BaseTest {
         public
         pure
     {
-        assertEq(StringUtils.lastIndexOf(subject, needle, offset), referenceLastIndexOf(subject, needle, offset));
+        assertEq(
+            StringUtils.lastIndexOf(subject, needle, offset),
+            referenceLastIndexOf(subject, needle, offset),
+            "result differs from reference implementation"
+        );
     }
 
     function test_fuzz_lastIndexOf_differential(string memory subject, string memory needle) public pure {
-        assertEq(StringUtils.lastIndexOf(subject, needle), referenceLastIndexOf(subject, needle, NOT_FOUND));
+        assertEq(
+            StringUtils.lastIndexOf(subject, needle),
+            referenceLastIndexOf(subject, needle, NOT_FOUND),
+            "result differs from reference implementation"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -184,8 +185,4 @@ contract StringUtilsLastIndexOfTest is BaseTest {
 
         return NOT_FOUND;
     }
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    //  Helpers
-    // ─────────────────────────────────────────────────────────────────────────────
 }

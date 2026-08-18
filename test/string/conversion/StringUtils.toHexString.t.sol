@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {StringUtils} from "src/StringUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {StringUtilsTest} from "test/Base.t.sol";
 
-abstract contract StringUtilsToHexStringTest is BaseTest {
+abstract contract StringUtilsToHexStringTest is StringUtilsTest {
     bytes16 internal constant HEX_DIGITS = "0123456789abcdef";
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -236,7 +236,7 @@ contract StringUtilsToHexStringAddressTest is StringUtilsToHexStringTest {
     //  Fuzz
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function test_fuzz_toHexString_addressOverloadsAreEquivalent(address v) public pure {
+    function test_fuzz_toHexString_overloadEquivalence(address v) public pure {
         assertEq(StringUtils.toHexString(v), StringUtils.toHexString(v, true, false));
         assertEq(StringUtils.toHexStringNoPrefix(v), StringUtils.toHexString(v, false, false));
         assertEq(StringUtils.toHexStringChecksummed(v), StringUtils.toHexString(v, true, true));
@@ -244,58 +244,78 @@ contract StringUtilsToHexStringAddressTest is StringUtilsToHexStringTest {
     }
 
     function test_fuzz_toHexString_charset(address value) public pure {
-        bytes memory buffer = bytes(StringUtils.toHexString(value));
-        assertEq(buffer.length, 42);
-        assertEq(buffer[0], "0");
-        assertEq(buffer[1], "x");
+        bytes memory result = bytes(StringUtils.toHexString(value));
+        assertEq(result.length, 42, "hex address has incorrect length");
+        assertEq(result[0], "0", "hex address is missing leading zero");
+        assertEq(result[1], "x", "hex address is missing x prefix");
 
-        for (uint256 i = 2; i < buffer.length; ++i) {
-            uint8 char = uint8(buffer[i]);
+        for (uint256 i = 2; i < result.length; ++i) {
+            uint8 char = uint8(result[i]);
             bool isDigit = char >= 0x30 && char <= 0x39;
             bool isLowercase = char >= 0x61 && char <= 0x66;
-            assertTrue(isDigit || isLowercase);
+            assertTrue(isDigit || isLowercase, "hex address contains invalid lowercase hex character");
         }
-        assertMemoryInvariants(buffer);
+
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_toHexStringChecksummed_charset(address value) public pure {
-        bytes memory buffer = bytes(StringUtils.toHexStringChecksummed(value));
-        assertEq(buffer.length, 42);
-        assertEq(buffer[0], "0");
-        assertEq(buffer[1], "x");
+        bytes memory result = bytes(StringUtils.toHexStringChecksummed(value));
+        assertEq(result.length, 42, "checksummed address has incorrect length");
+        assertEq(result[0], "0", "checksummed address is missing leading zero");
+        assertEq(result[1], "x", "checksummed address is missing x prefix");
 
-        for (uint256 i = 2; i < buffer.length; ++i) {
-            uint8 char = uint8(buffer[i]);
+        for (uint256 i = 2; i < result.length; ++i) {
+            uint8 char = uint8(result[i]);
             bool isDigit = char >= 0x30 && char <= 0x39;
             bool isUppercase = char >= 0x41 && char <= 0x46;
             bool isLowercase = char >= 0x61 && char <= 0x66;
-            assertTrue(isDigit || isUppercase || isLowercase);
+            assertTrue(isDigit || isUppercase || isLowercase, "checksummed address contains invalid hex character");
         }
-        assertMemoryInvariants(buffer);
+
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_toHexString_roundtrip(address value) public pure {
-        assertEq(vm.parseAddress(StringUtils.toHexString(value)), value);
+        assertEq(vm.parseAddress(StringUtils.toHexString(value)), value, "hex address does not round-trip");
     }
 
     function test_fuzz_toHexStringChecksummed_roundtrip(address value) public pure {
-        assertEq(vm.parseAddress(StringUtils.toHexStringChecksummed(value)), value);
+        assertEq(
+            vm.parseAddress(StringUtils.toHexStringChecksummed(value)), value, "checksummed address does not round-trip"
+        );
     }
 
     function test_fuzz_toHexStringNoPrefix_roundtrip(address value) public pure {
-        assertEq(vm.parseAddress(string.concat("0x", StringUtils.toHexStringNoPrefix(value))), value);
+        assertEq(
+            vm.parseAddress(string.concat("0x", StringUtils.toHexStringNoPrefix(value))),
+            value,
+            "unprefixed hex address does not round-trip"
+        );
     }
 
     function test_fuzz_toHexString(address value) public pure {
-        assertEq(StringUtils.toHexString(value), vm.toLowercase(vm.toString(value)));
+        assertEq(
+            StringUtils.toHexString(value),
+            vm.toLowercase(vm.toString(value)),
+            "result differs from lowercase reference encoding"
+        );
     }
 
     function test_fuzz_toHexStringChecksummed(address value) public pure {
-        assertEq(StringUtils.toHexStringChecksummed(value), vm.toString(value));
+        assertEq(
+            StringUtils.toHexStringChecksummed(value),
+            vm.toString(value),
+            "result differs from checksummed reference encoding"
+        );
     }
 
     function test_fuzz_toHexStringNoPrefix(address value) public pure {
-        assertEq(StringUtils.toHexStringNoPrefix(value), vm.replace(vm.toLowercase(vm.toString(value)), "0x", ""));
+        assertEq(
+            StringUtils.toHexStringNoPrefix(value),
+            vm.replace(vm.toLowercase(vm.toString(value)), "0x", ""),
+            "result differs from unprefixed reference encoding"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -304,34 +324,34 @@ contract StringUtilsToHexStringAddressTest is StringUtilsToHexStringTest {
 
     function test_fuzz_toHexString_differential(address value, bool prefixed, bool checksummed) public pure {
         string memory expected = toHexString(value, prefixed, checksummed);
-        string memory actual = StringUtils.toHexString(value, prefixed, checksummed);
+        string memory result = StringUtils.toHexString(value, prefixed, checksummed);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_toHexString_differential(address value) public pure {
         string memory expected = toHexString(value, true, false);
-        string memory actual = StringUtils.toHexString(value);
+        string memory result = StringUtils.toHexString(value);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_toHexStringChecksummed_differential(address value) public pure {
         string memory expected = toHexString(value, true, true);
-        string memory actual = StringUtils.toHexStringChecksummed(value);
+        string memory result = StringUtils.toHexStringChecksummed(value);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_toHexStringNoPrefix_differential(address value) public pure {
         string memory expected = toHexString(value, false, false);
-        string memory actual = StringUtils.toHexStringNoPrefix(value);
+        string memory result = StringUtils.toHexStringNoPrefix(value);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 }
 
@@ -394,11 +414,11 @@ contract StringUtilsToHexStringBytesTest is StringUtilsToHexStringTest {
 
         for (uint256 i = 0; i < 32; ++i) {
             string memory expected = string.concat("0x", zeroBytes = string.concat(zeroBytes, "00"));
-            string memory actual = StringUtils.toHexString(buffer = bytes.concat(buffer, hex"00"));
+            string memory result = StringUtils.toHexString(buffer = bytes.concat(buffer, hex"00"));
 
-            assertEq(bytes(actual).length, 2 * buffer.length + 2);
-            assertEq(actual, expected);
-            assertMemoryInvariants(actual);
+            assertEq(bytes(result).length, 2 * buffer.length + 2);
+            assertEq(result, expected);
+            assertMemoryInvariants(result);
         }
     }
 
@@ -408,11 +428,11 @@ contract StringUtilsToHexStringBytesTest is StringUtilsToHexStringTest {
 
         for (uint256 i = 0; i < 32; ++i) {
             string memory expected = string.concat("0x", maxBytes = string.concat(maxBytes, "ff"));
-            string memory actual = StringUtils.toHexString(buffer = bytes.concat(buffer, hex"ff"));
+            string memory result = StringUtils.toHexString(buffer = bytes.concat(buffer, hex"ff"));
 
-            assertEq(bytes(actual).length, 2 * buffer.length + 2);
-            assertEq(actual, expected);
-            assertMemoryInvariants(actual);
+            assertEq(bytes(result).length, 2 * buffer.length + 2);
+            assertEq(result, expected);
+            assertMemoryInvariants(result);
         }
     }
 
@@ -420,69 +440,77 @@ contract StringUtilsToHexStringBytesTest is StringUtilsToHexStringTest {
     //  Fuzz
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function test_fuzz_toHexString_bytesOverloadsAreEquivalent(bytes memory input) public pure {
-        assertEq(StringUtils.toHexString(input), StringUtils.toHexString(input, true));
-        assertEq(StringUtils.toHexStringNoPrefix(input), StringUtils.toHexString(input, false));
+    function test_fuzz_toHexString_overloadEquivalence(bytes memory buffer) public pure {
+        assertEq(StringUtils.toHexString(buffer), StringUtils.toHexString(buffer, true));
+        assertEq(StringUtils.toHexStringNoPrefix(buffer), StringUtils.toHexString(buffer, false));
     }
 
-    function test_fuzz_toHexString_charset(bytes memory input) public pure {
-        bytes memory buffer = bytes(StringUtils.toHexString(input));
+    function test_fuzz_toHexString_charset(bytes memory buffer) public pure {
+        bytes memory result = bytes(StringUtils.toHexString(buffer));
+        assertEq(result.length, 2 * buffer.length + 2, "hex string has incorrect length");
+        assertEq(result[0], "0", "hex string is missing leading zero");
+        assertEq(result[1], "x", "hex string is missing x prefix");
 
-        assertEq(buffer.length, 2 * input.length + 2);
-        assertEq(buffer[0], "0");
-        assertEq(buffer[1], "x");
-
-        for (uint256 i = 2; i < buffer.length; ++i) {
-            uint8 char = uint8(buffer[i]);
+        for (uint256 i = 2; i < result.length; ++i) {
+            uint8 char = uint8(result[i]);
             bool isDigit = char >= 0x30 && char <= 0x39;
             bool isLowercase = char >= 0x61 && char <= 0x66;
-            assertTrue(isDigit || isLowercase);
+            assertTrue(isDigit || isLowercase, "hex string contains invalid lowercase hex character");
         }
-        assertMemoryInvariants(buffer);
+
+        assertMemoryInvariants(result);
     }
 
-    function test_fuzz_toHexString_roundtrip(bytes memory input) public pure {
-        assertEq(vm.parseBytes(StringUtils.toHexString(input)), input);
+    function test_fuzz_toHexString_roundtrip(bytes memory buffer) public pure {
+        assertEq(vm.parseBytes(StringUtils.toHexString(buffer)), buffer, "hex string does not round-trip");
     }
 
-    function test_fuzz_toHexStringNoPrefix_roundtrip(bytes memory input) public pure {
-        assertEq(vm.parseBytes(string.concat("0x", StringUtils.toHexStringNoPrefix(input))), input);
+    function test_fuzz_toHexStringNoPrefix_roundtrip(bytes memory buffer) public pure {
+        assertEq(
+            vm.parseBytes(string.concat("0x", StringUtils.toHexStringNoPrefix(buffer))),
+            buffer,
+            "unprefixed hex string does not round-trip"
+        );
     }
 
-    function test_fuzz_toHexString(bytes memory input) public pure {
-        assertEq(StringUtils.toHexString(input), vm.toString(input));
+    function test_fuzz_toHexString(bytes memory buffer) public pure {
+        assertEq(StringUtils.toHexString(buffer), vm.toString(buffer), "result differs from reference encoding");
     }
 
-    function test_fuzz_toHexStringNoPrefix(bytes memory input) public pure {
-        assertEq(StringUtils.toHexStringNoPrefix(input), vm.replace(vm.toString(input), "0x", ""));
+    function test_fuzz_toHexStringNoPrefix(bytes memory buffer) public pure {
+        assertEq(
+            StringUtils.toHexStringNoPrefix(buffer),
+            vm.replace(vm.toString(buffer), "0x", ""),
+            "result differs from unprefixed reference encoding"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
     //  Differential
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function test_fuzz_toHexString_differential(bytes memory input, bool prefixed) public pure {
-        string memory expected = toHexString(input, prefixed);
-        string memory actual = StringUtils.toHexString(input, prefixed);
+    function test_fuzz_toHexString_differential(bytes memory buffer, bool prefixed) public pure {
+        string memory expected = toHexString(buffer, prefixed);
+        string memory result = StringUtils.toHexString(buffer, prefixed);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
-    function test_fuzz_toHexString_differential(bytes memory input) public pure {
-        string memory expected = toHexString(input, true);
-        string memory actual = StringUtils.toHexString(input);
+    function test_fuzz_toHexString_differential(bytes memory buffer) public pure {
+        string memory expected = toHexString(buffer, true);
+        string memory result = StringUtils.toHexString(buffer);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
-    function test_fuzz_toHexStringNoPrefix_differential(bytes memory input) public pure {
-        string memory expected = toHexString(input, false);
-        string memory actual = StringUtils.toHexStringNoPrefix(input);
+    function test_fuzz_toHexStringNoPrefix_differential(bytes memory buffer) public pure {
+        string memory expected = toHexString(buffer, false);
+        string memory result = StringUtils.toHexStringNoPrefix(buffer);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 }
 
@@ -520,29 +548,28 @@ contract StringUtilsToHexStringUint256Test is StringUtilsToHexStringTest {
             uint256 maxUint = type(uint256).max >> ((32 - i) << 3);
             string memory maxBytes = vm.toString(bytes32(maxUint));
             string memory expected = vm.replace(maxBytes, "00", "");
-            string memory actual = StringUtils.toHexString(maxUint, i);
+            string memory result = StringUtils.toHexString(maxUint, i);
 
-            assertEq(bytes(actual).length, 2 * i + 2);
-            assertEq(actual, expected);
-            assertMemoryInvariants(actual);
+            assertEq(bytes(result).length, 2 * i + 2);
+            assertEq(result, expected);
+            assertMemoryInvariants(result);
         }
     }
 
     function test_toHexString_fixed_leftZeroPadding() public pure {
         for (uint256 i = 1; i <= 32; ++i) {
-            bytes memory buffer = bytes(StringUtils.toHexString(uint256(0xff), i));
+            bytes memory result = bytes(StringUtils.toHexString(uint256(0xff), i));
+            assertEq(result.length, 2 * i + 2);
+            assertEq(result[0], "0");
+            assertEq(result[1], "x");
 
-            assertEq(buffer.length, 2 * i + 2);
-            assertEq(buffer[0], "0");
-            assertEq(buffer[1], "x");
-
-            for (uint256 j = 2; j < buffer.length - 2; ++j) {
-                assertEq(buffer[j], "0");
+            for (uint256 j = 2; j < result.length - 2; ++j) {
+                assertEq(result[j], "0");
             }
 
-            assertEq(buffer[buffer.length - 2], "f");
-            assertEq(buffer[buffer.length - 1], "f");
-            assertMemoryInvariants(buffer);
+            assertEq(result[result.length - 2], "f");
+            assertEq(result[result.length - 1], "f");
+            assertMemoryInvariants(result);
         }
     }
 
@@ -573,11 +600,11 @@ contract StringUtilsToHexStringUint256Test is StringUtilsToHexStringTest {
             uint256 maxUint = type(uint256).max >> ((32 - i) << 3);
             string memory maxBytes = vm.toString(bytes32(maxUint));
             string memory expected = vm.replace(maxBytes, "00", "");
-            string memory actual = StringUtils.toHexString(maxUint);
+            string memory result = StringUtils.toHexString(maxUint);
 
-            assertEq(actual, expected);
-            assertEq(vm.parseUint(actual), maxUint);
-            assertMemoryInvariants(actual);
+            assertEq(result, expected);
+            assertEq(vm.parseUint(result), maxUint);
+            assertMemoryInvariants(result);
         }
     }
 
@@ -596,7 +623,7 @@ contract StringUtilsToHexStringUint256Test is StringUtilsToHexStringTest {
         StringUtils.toHexString(value, length);
     }
 
-    function test_fuzz_toHexString_uint256OverloadsAreEquivalent(uint256 value) public pure {
+    function test_fuzz_toHexString_overloadEquivalence(uint256 value) public pure {
         uint256 byteLength = log256(value) + 1;
 
         assertEq(StringUtils.toHexString(value), StringUtils.toHexString(value, true));
@@ -605,7 +632,7 @@ contract StringUtilsToHexStringUint256Test is StringUtilsToHexStringTest {
         assertEq(StringUtils.toHexStringNoPrefix(value, byteLength), StringUtils.toHexString(value, byteLength, false));
     }
 
-    function test_fuzz_toHexString_uint256OverloadsAreEquivalent(uint256 value, uint256 length) public pure {
+    function test_fuzz_toHexString_overloadEquivalence(uint256 value, uint256 length) public pure {
         uint256 byteLength = bound(length, log256(value) + 1, type(uint8).max);
 
         assertEq(StringUtils.toHexString(value), StringUtils.toHexString(value, true));
@@ -615,59 +642,79 @@ contract StringUtilsToHexStringUint256Test is StringUtilsToHexStringTest {
     }
 
     function test_fuzz_toHexString_fixed_charset(uint256 value, uint256 length) public pure {
-        uint256 byteCount = bound(length, log256(value) + 1, type(uint8).max);
-        uint256 byteLength = 2 * byteCount + 2;
-        bytes memory buffer = bytes(StringUtils.toHexString(value, byteCount));
+        uint256 byteLength = bound(length, log256(value) + 1, type(uint8).max);
+        bytes memory result = bytes(StringUtils.toHexString(value, byteLength));
 
-        assertEq(buffer.length, byteLength);
-        assertEq(buffer[0], "0");
-        assertEq(buffer[1], "x");
+        assertEq(result.length, 2 * byteLength + 2, "hex string has incorrect fixed width");
+        assertEq(result[0], "0", "hex string is missing leading zero");
+        assertEq(result[1], "x", "hex string is missing x prefix");
 
-        for (uint256 i = 2; i < buffer.length; ++i) {
-            uint8 char = uint8(buffer[i]);
+        for (uint256 i = 2; i < result.length; ++i) {
+            uint8 char = uint8(result[i]);
             bool isDigit = char >= 0x30 && char <= 0x39;
             bool isLowercase = char >= 0x61 && char <= 0x66;
-            assertTrue(isDigit || isLowercase);
+            assertTrue(isDigit || isLowercase, "hex string contains invalid lowercase hex character");
         }
-        assertMemoryInvariants(buffer);
+
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_toHexString_fixed_roundtrip(uint256 value, uint256 length) public pure {
-        uint256 byteCount = bound(length, log256(value) + 1, type(uint8).max);
-        assertEq(vm.parseUint(StringUtils.toHexString(value, byteCount)), value);
+        uint256 byteLength = bound(length, log256(value) + 1, type(uint8).max);
+
+        assertEq(
+            vm.parseUint(StringUtils.toHexString(value, byteLength)),
+            value,
+            "fixed-width hex string does not round-trip"
+        );
     }
 
     function test_fuzz_toHexStringNoPrefix_fixed_roundtrip(uint256 value, uint256 length) public pure {
-        uint256 byteCount = bound(length, log256(value) + 1, type(uint8).max);
-        assertEq(vm.parseUint(string.concat("0x", StringUtils.toHexStringNoPrefix(value, byteCount))), value);
+        uint256 byteLength = bound(length, log256(value) + 1, type(uint8).max);
+
+        assertEq(
+            vm.parseUint(string.concat("0x", StringUtils.toHexStringNoPrefix(value, byteLength))),
+            value,
+            "unprefixed fixed-width hex string does not round-trip"
+        );
     }
 
     function test_fuzz_toHexString_fixed(uint256 value, uint256 length) public {
-        uint256 byteCount = bound(length, 1, type(uint8).max);
-        if (byteCount < log256(value) + 1) vm.expectRevert(StringUtils.InsufficientHexStringLength.selector);
-        assertEq(StringUtils.toHexString(value, byteCount), toHexString(value, byteCount, true));
+        uint256 byteLength = bound(length, 1, type(uint8).max);
+        if (byteLength < log256(value) + 1) vm.expectRevert(StringUtils.InsufficientHexStringLength.selector);
+
+        assertEq(
+            StringUtils.toHexString(value, byteLength),
+            toHexString(value, byteLength, true),
+            "result differs from reference implementation"
+        );
     }
 
     function test_fuzz_toHexString_charset(uint256 value) public pure {
-        bytes memory buffer = bytes(StringUtils.toHexString(value));
-        assertEq(buffer[0], "0");
-        assertEq(buffer[1], "x");
+        bytes memory result = bytes(StringUtils.toHexString(value));
+        assertEq(result[0], "0", "hex string is missing leading zero");
+        assertEq(result[1], "x", "hex string is missing x prefix");
 
-        for (uint256 i = 2; i < buffer.length; ++i) {
-            uint8 char = uint8(buffer[i]);
+        for (uint256 i = 2; i < result.length; ++i) {
+            uint8 char = uint8(result[i]);
             bool isDigit = char >= 0x30 && char <= 0x39;
             bool isLowercase = char >= 0x61 && char <= 0x66;
-            assertTrue(isDigit || isLowercase);
+            assertTrue(isDigit || isLowercase, "hex string contains invalid lowercase hex character");
         }
-        assertMemoryInvariants(buffer);
+
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_toHexString_roundtrip(uint256 value) public pure {
-        assertEq(vm.parseUint(StringUtils.toHexString(value)), value);
+        assertEq(vm.parseUint(StringUtils.toHexString(value)), value, "hex string does not round-trip");
     }
 
     function test_fuzz_toHexStringNoPrefix_roundtrip(uint256 value) public pure {
-        assertEq(vm.parseUint(string.concat("0x", StringUtils.toHexStringNoPrefix(value))), value);
+        assertEq(
+            vm.parseUint(string.concat("0x", StringUtils.toHexStringNoPrefix(value))),
+            value,
+            "unprefixed hex string does not round-trip"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -675,62 +722,56 @@ contract StringUtilsToHexStringUint256Test is StringUtilsToHexStringTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_toHexString_fixed_differential(uint256 value, uint256 length, bool prefixed) public pure {
-        uint256 byteCount = bound(length, log256(value) + 1, type(uint8).max);
-        uint256 byteLength = 2 * byteCount + (prefixed ? 2 : 0);
+        uint256 byteLength = bound(length, log256(value) + 1, type(uint8).max);
+        string memory expected = toHexString(value, byteLength, prefixed);
+        string memory result = StringUtils.toHexString(value, byteLength, prefixed);
 
-        string memory expected = toHexString(value, byteCount, prefixed);
-        string memory actual = StringUtils.toHexString(value, byteCount, prefixed);
-
-        assertEq(bytes(actual).length, byteLength);
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(bytes(result).length, 2 * byteLength + (prefixed ? 2 : 0), "hex string has incorrect fixed width");
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_toHexString_fixed_differential(uint256 value, uint256 length) public pure {
-        uint256 byteCount = bound(length, log256(value) + 1, type(uint8).max);
-        uint256 byteLength = 2 * byteCount + 2;
+        uint256 byteLength = bound(length, log256(value) + 1, type(uint8).max);
+        string memory expected = toHexString(value, byteLength, true);
+        string memory result = StringUtils.toHexString(value, byteLength);
 
-        string memory expected = toHexString(value, byteCount, true);
-        string memory actual = StringUtils.toHexString(value, byteCount);
-
-        assertEq(bytes(actual).length, byteLength);
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(bytes(result).length, 2 * byteLength + 2, "hex string has incorrect fixed width");
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_toHexStringNoPrefix_fixed_differential(uint256 value, uint256 length) public pure {
-        uint256 byteCount = bound(length, log256(value) + 1, type(uint8).max);
-        uint256 byteLength = 2 * byteCount;
+        uint256 byteLength = bound(length, log256(value) + 1, type(uint8).max);
+        string memory expected = toHexString(value, byteLength, false);
+        string memory result = StringUtils.toHexStringNoPrefix(value, byteLength);
 
-        string memory expected = toHexString(value, byteCount, false);
-        string memory actual = StringUtils.toHexStringNoPrefix(value, byteCount);
-
-        assertEq(bytes(actual).length, byteLength);
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(bytes(result).length, 2 * byteLength, "hex string has incorrect fixed width");
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_toHexString_differential(uint256 value, bool prefixed) public pure {
         string memory expected = toHexString(value, prefixed);
-        string memory actual = StringUtils.toHexString(value, prefixed);
+        string memory result = StringUtils.toHexString(value, prefixed);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_toHexString_differential(uint256 value) public pure {
         string memory expected = toHexString(value, true);
-        string memory actual = StringUtils.toHexString(value);
+        string memory result = StringUtils.toHexString(value);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_toHexStringNoPrefix_differential(uint256 value) public pure {
         string memory expected = toHexString(value, false);
-        string memory actual = StringUtils.toHexStringNoPrefix(value);
+        string memory result = StringUtils.toHexStringNoPrefix(value);
 
-        assertEq(actual, expected);
-        assertMemoryInvariants(actual);
+        assertEq(result, expected, "result differs from reference implementation");
+        assertMemoryInvariants(result);
     }
 }

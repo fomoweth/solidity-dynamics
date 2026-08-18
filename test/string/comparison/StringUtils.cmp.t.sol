@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {StringUtils} from "src/StringUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {StringUtilsTest} from "test/Base.t.sol";
 
-contract StringUtilsCmpTest is BaseTest {
+contract StringUtilsCmpTest is StringUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     // 	Unit
     // ─────────────────────────────────────────────────────────────────────────────
@@ -72,23 +72,24 @@ contract StringUtilsCmpTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_cmp_reflexive(string memory x) public pure {
-        assertEq(StringUtils.cmp(x, x), int256(0));
+        assertEq(StringUtils.cmp(x, x), int256(0), "comparison is not reflexive");
     }
 
-    function test_fuzz_cmp_asymmetric(string memory x, string memory y) public pure {
-        assertEq(StringUtils.cmp(x, y), -StringUtils.cmp(y, x));
+    function test_fuzz_cmp_antisymmetric(string memory x, string memory y) public pure {
+        assertEq(StringUtils.cmp(x, y), -StringUtils.cmp(y, x), "comparison is not antisymmetric");
     }
 
     function test_fuzz_cmp_transitive(string memory x, string memory y, string memory z) public pure {
         int256 xy = StringUtils.cmp(x, y);
         int256 yz = StringUtils.cmp(y, z);
-        if (xy == yz && xy != int256(0)) assertEq(StringUtils.cmp(x, z), xy);
+        if (xy < 0 && yz < 0) assertLt(StringUtils.cmp(x, z), int256(0), "less-than ordering is not transitive");
+        if (xy > 0 && yz > 0) assertGt(StringUtils.cmp(x, z), int256(0), "greater-than ordering is not transitive");
     }
 
-    function test_fuzz_cmp(string memory x, string memory y) public pure {
+    function test_fuzz_cmp_returnsNormalizedOrdering(string memory x, string memory y) public pure {
         int256 z = StringUtils.cmp(x, y);
-        assertTrue(z == int256(-1) || z == int256(0) || z == int256(1));
-        assertEq(z == int256(0), keccak256(bytes(x)) == keccak256(bytes(y)));
+        assertTrue(z == int256(-1) || z == int256(0) || z == int256(1), "comparison result is not normalized");
+        assertEq(z == 0, keccak256(bytes(x)) == keccak256(bytes(y)), "zero comparison result disagrees with equality");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -96,7 +97,7 @@ contract StringUtilsCmpTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_cmp_differential(string memory x, string memory y) public pure {
-        assertEq(StringUtils.cmp(x, y), referenceCmp(x, y));
+        assertEq(StringUtils.cmp(x, y), referenceCmp(x, y), "result differs from reference implementation");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -106,13 +107,10 @@ contract StringUtilsCmpTest is BaseTest {
     function referenceCmp(string memory x, string memory y) internal pure returns (int256) {
         bytes memory xb = bytes(x);
         bytes memory yb = bytes(y);
-
-        uint256 length = min(xb.length, yb.length);
-        for (uint256 i = 0; i < length; ++i) {
+        for (uint256 i = 0; i < min(xb.length, yb.length); ++i) {
             if (xb[i] < yb[i]) return -1;
             if (xb[i] > yb[i]) return 1;
         }
-
         if (xb.length < yb.length) return -1;
         if (xb.length > yb.length) return 1;
         return 0;

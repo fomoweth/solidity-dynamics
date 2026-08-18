@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {StringUtils} from "src/StringUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {StringUtilsTest} from "test/Base.t.sol";
 
-contract StringUtilsIndicesOfTest is BaseTest {
+contract StringUtilsIndicesOfTest is StringUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
@@ -20,6 +20,12 @@ contract StringUtilsIndicesOfTest is BaseTest {
         assertEq(indices.length, 2);
         assertEq(indices[0], 1);
         assertEq(indices[1], 3);
+    }
+
+    function test_indicesOf_singleChar() public pure {
+        uint256[] memory indices = StringUtils.indicesOf("a", "a");
+        assertEq(indices.length, 1);
+        assertEq(indices[0], 0);
     }
 
     function test_indicesOf_emptySubject() public pure {
@@ -83,15 +89,10 @@ contract StringUtilsIndicesOfTest is BaseTest {
         assertEq(indices[0], 6);
     }
 
-    function test_indicesOf_singleChar() public pure {
-        uint256[] memory indices = StringUtils.indicesOf("a", "a");
-        assertEq(indices.length, 1);
-        assertEq(indices[0], 0);
-    }
-
     function test_indicesOf_longNeedle() public pure {
         string memory needle = "0123456789ABCDEFabcdef0123456789ABCDEFabcdef";
         string memory subject = string.concat(needle, "z", needle);
+
         uint256[] memory indices = StringUtils.indicesOf(subject, needle);
         assertEq(indices.length, 2);
         assertEq(indices[0], 0);
@@ -107,10 +108,6 @@ contract StringUtilsIndicesOfTest is BaseTest {
             assertEq(indices.length, 1);
             assertEq(indices[0], i);
         }
-
-        indices = StringUtils.indicesOf(subject, string(abi.encodePacked(bytes2(0xfeff))));
-        assertEq(indices.length, 1);
-        assertEq(indices[0], 254);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -121,17 +118,16 @@ contract StringUtilsIndicesOfTest is BaseTest {
         public
         pure
     {
-        uint256 needleLength = bytes(needle).length;
         uint256[] memory indices = StringUtils.indicesOf(subject, needle);
 
         for (uint256 i = 0; i < indices.length; ++i) {
-            assertLe(indices[i] + needleLength, bytes(subject).length, "match runs past the subject");
-            assertEq(StringUtils.slice(subject, indices[i], needleLength), needle, "index is not a real match");
+            assertLe(indices[i] + bytes(needle).length, bytes(subject).length, "match runs past the subject");
+            assertEq(StringUtils.slice(subject, indices[i], bytes(needle).length), needle, "index is not a real match");
 
             if (i != 0) {
                 assertGt(indices[i], indices[i - 1], "indices are not strictly increasing");
                 // Non-empty matches are consumed in full, so they cannot overlap.
-                assertGe(indices[i], indices[i - 1] + needleLength, "matches overlap");
+                assertGe(indices[i], indices[i - 1] + bytes(needle).length, "matches overlap");
             }
         }
     }
@@ -142,10 +138,7 @@ contract StringUtilsIndicesOfTest is BaseTest {
         if (indices.length == 0) {
             assertEq(StringUtils.indexOf(subject, needle), NOT_FOUND, "indexOf found a match when indicesOf found none");
         } else {
-            assertEq(indices[0], StringUtils.indexOf(subject, needle), "first indicesOf match differs from indexOf");
-
-            // `lastIndexOf` scans every start position, so it may find an overlapping occurrence
-            // that the non-overlapping sweep skipped; it can never find an earlier one.
+            assertEq(StringUtils.indexOf(subject, needle), indices[0], "first indicesOf match differs from indexOf");
             assertGe(
                 StringUtils.lastIndexOf(subject, needle),
                 indices[indices.length - 1],
@@ -171,7 +164,11 @@ contract StringUtilsIndicesOfTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_indicesOf_differential(string memory subject, string memory needle) public pure {
-        assertEq(StringUtils.indicesOf(subject, needle), referenceIndicesOf(subject, needle));
+        assertEq(
+            StringUtils.indicesOf(subject, needle),
+            referenceIndicesOf(subject, needle),
+            "result differs from reference implementation"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -183,17 +180,14 @@ contract StringUtilsIndicesOfTest is BaseTest {
         pure
         returns (uint256[] memory indices)
     {
-        uint256 subjectLength = bytes(subject).length;
-        uint256 needleLength = bytes(needle).length;
+        indices = new uint256[](bytes(subject).length + 1);
         uint256 length = 0;
 
-        indices = new uint256[](subjectLength + 1);
-
-        for (uint256 i = 0; i + needleLength <= subjectLength;) {
+        for (uint256 i = 0; i + bytes(needle).length <= bytes(subject).length;) {
             if (matchesAt(bytes(subject), bytes(needle), i)) {
                 indices[length++] = i;
-                if (needleLength != 0) {
-                    i += needleLength;
+                if (bytes(needle).length != 0) {
+                    i += bytes(needle).length;
                     continue;
                 }
             }

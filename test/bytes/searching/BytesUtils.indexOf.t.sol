@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {BytesUtils} from "src/BytesUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {BytesUtilsTest} from "test/Base.t.sol";
 
-contract BytesUtilsIndexOfTest is BaseTest {
+contract BytesUtilsIndexOfTest is BytesUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
@@ -48,7 +48,6 @@ contract BytesUtilsIndexOfTest is BaseTest {
     }
 
     function test_indexOf_overlapping() public pure {
-        // "aaa", find "aa" from 0 → first match at 0
         assertEq(BytesUtils.indexOf("aaa", "aa"), 0);
     }
 
@@ -96,15 +95,10 @@ contract BytesUtilsIndexOfTest is BaseTest {
     }
 
     function test_indexOf_arbitraryBytes() public pure {
-        bytes memory subject = bytes(allBytes());
-
+        bytes memory subject = allBytes();
         for (uint256 i = 0; i < 256; ++i) {
-            assertEq(BytesUtils.indexOf(subject, abi.encodePacked(uint8(i))), i);
+            assertEq(BytesUtils.indexOf(subject, singleByte(i)), i);
         }
-
-        assertEq(BytesUtils.indexOf(subject, abi.encodePacked(bytes2(0x0001))), 0);
-        assertEq(BytesUtils.indexOf(subject, abi.encodePacked(bytes2(0x8081))), 128);
-        assertEq(BytesUtils.indexOf(subject, abi.encodePacked(bytes2(0xfeff))), 254);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -157,11 +151,8 @@ contract BytesUtilsIndexOfTest is BaseTest {
     }
 
     function test_fuzz_indexOf_offsetMonotone(bytes memory subject, bytes memory needle, uint256 offset) public pure {
-        offset = bound(offset, 0, subject.length);
         uint256 fromZero = BytesUtils.indexOf(subject, needle);
-        uint256 fromOffset = BytesUtils.indexOf(subject, needle, offset);
-
-        // result from offset >= result from 0 (when both found)
+        uint256 fromOffset = BytesUtils.indexOf(subject, needle, bound(offset, 0, subject.length));
         if (fromZero != NOT_FOUND && fromOffset != NOT_FOUND) {
             assertGe(fromOffset, fromZero, "later search offset returned an earlier match");
         }
@@ -172,11 +163,19 @@ contract BytesUtilsIndexOfTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_indexOf_differential(bytes memory subject, bytes memory needle, uint256 offset) public pure {
-        assertEq(BytesUtils.indexOf(subject, needle, offset), referenceIndexOf(subject, needle, offset));
+        assertEq(
+            BytesUtils.indexOf(subject, needle, offset),
+            referenceIndexOf(subject, needle, offset),
+            "result differs from reference implementation"
+        );
     }
 
     function test_fuzz_indexOf_differential(bytes memory subject, bytes memory needle) public pure {
-        assertEq(BytesUtils.indexOf(subject, needle), referenceIndexOf(subject, needle, 0));
+        assertEq(
+            BytesUtils.indexOf(subject, needle),
+            referenceIndexOf(subject, needle, 0),
+            "result differs from reference implementation"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

@@ -2,35 +2,21 @@
 pragma solidity ^0.8.0;
 
 import {StringUtils} from "src/StringUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {StringUtilsTest} from "test/Base.t.sol";
 
-contract StringUtilsEndsWithTest is BaseTest {
+contract StringUtilsEndsWithTest is StringUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function test_endsWith_emptySubject() public pure {
-        assertFalse(StringUtils.endsWith("", "a"));
-    }
-
-    function test_endsWith_emptyNeedle() public pure {
-        assertTrue(StringUtils.endsWith("abc", ""));
-        assertTrue(StringUtils.endsWith("", ""));
-    }
-
-    function test_endsWith_needleLongerThanSubject() public pure {
-        assertFalse(StringUtils.endsWith("ab", "abc"));
-        assertFalse(StringUtils.endsWith("bc", "abc"));
-    }
-
-    function test_endsWith_needleEqualsSubject() public pure {
-        assertTrue(StringUtils.endsWith("abc", "abc"));
-    }
-
-    function test_endsWith_properSuffix() public pure {
+    function test_endsWith_basic() public pure {
         assertTrue(StringUtils.endsWith("hello world", "world"));
         assertFalse(StringUtils.endsWith("hello world", "hello"));
         assertFalse(StringUtils.endsWith("hello world", "worlD"));
+    }
+
+    function test_endsWith_exactMatch() public pure {
+        assertTrue(StringUtils.endsWith("abc", "abc"));
     }
 
     function test_endsWith_singleChar() public pure {
@@ -38,8 +24,21 @@ contract StringUtilsEndsWithTest is BaseTest {
         assertFalse(StringUtils.endsWith("abc", "b"));
     }
 
-    function test_endsWith_bothEmpty() public pure {
+    function test_endsWith_emptySubjectAndNeedle() public pure {
         assertTrue(StringUtils.endsWith("", ""));
+    }
+
+    function test_endsWith_emptySubject() public pure {
+        assertFalse(StringUtils.endsWith("", "a"));
+    }
+
+    function test_endsWith_emptyNeedle() public pure {
+        assertTrue(StringUtils.endsWith("abc", ""));
+    }
+
+    function test_endsWith_needleLongerThanSubject() public pure {
+        assertFalse(StringUtils.endsWith("ab", "abc"));
+        assertFalse(StringUtils.endsWith("bc", "abc"));
     }
 
     function test_endsWith_longNeedle() public pure {
@@ -66,11 +65,11 @@ contract StringUtilsEndsWithTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_endsWith_emptyNeedle(string memory subject) public pure {
-        assertTrue(StringUtils.endsWith(subject, ""));
+        assertTrue(StringUtils.endsWith(subject, ""), "empty needle was not recognized as suffix");
     }
 
     function test_fuzz_endsWith_reflexive(string memory subject) public pure {
-        assertTrue(StringUtils.endsWith(subject, subject));
+        assertTrue(StringUtils.endsWith(subject, subject), "subject was not recognized as its own suffix");
     }
 
     function test_fuzz_endsWith_sliceIsSuffix(string memory subject, uint256 offset) public pure {
@@ -78,7 +77,7 @@ contract StringUtilsEndsWithTest is BaseTest {
         assertTrue(StringUtils.endsWith(subject, suffix), "sliced suffix was not recognized");
     }
 
-    function test_fuzz_endsWith_constructed(string memory prefix, string memory suffix) public pure {
+    function test_fuzz_endsWith_concat(string memory prefix, string memory suffix) public pure {
         string memory subject = string.concat(prefix, suffix);
         assertTrue(StringUtils.endsWith(subject, suffix), "concatenation does not end with suffix");
     }
@@ -88,6 +87,7 @@ contract StringUtilsEndsWithTest is BaseTest {
             uint256 offset = bytes(subject).length - bytes(needle).length;
             string memory suffix = StringUtils.slice(subject, offset);
             assertEq(suffix, needle, "recognized suffix does not match trailing bytes");
+
             uint256 index = StringUtils.lastIndexOf(subject, needle);
             assertEq(index, offset, "recognized suffix was not found at trailing offset");
         }
@@ -103,12 +103,11 @@ contract StringUtilsEndsWithTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_endsWith_differential(string memory subject, string memory needle) public pure {
-        assertEq(StringUtils.endsWith(subject, needle), referenceEndsWith(subject, needle));
-    }
-
-    function test_fuzz_endsWith_differential_constructed(string memory prefix, string memory needle) public pure {
-        string memory subject = string.concat(prefix, needle);
-        assertEq(StringUtils.endsWith(subject, needle), referenceEndsWith(subject, needle));
+        assertEq(
+            StringUtils.endsWith(subject, needle),
+            referenceEndsWith(subject, needle),
+            "result differs from reference implementation"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

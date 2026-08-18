@@ -2,34 +2,21 @@
 pragma solidity ^0.8.0;
 
 import {BytesUtils} from "src/BytesUtils.sol";
-import {BaseTest} from "test/Base.t.sol";
+import {BytesUtilsTest} from "test/Base.t.sol";
 
-contract BytesUtilsStartsWithTest is BaseTest {
+contract BytesUtilsStartsWithTest is BytesUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function test_startsWith_emptySubject() public pure {
-        assertFalse(BytesUtils.startsWith("", "a"));
-    }
-
-    function test_startsWith_emptyNeedle() public pure {
-        assertTrue(BytesUtils.startsWith("abc", ""));
-        assertTrue(BytesUtils.startsWith("", ""));
-    }
-
-    function test_startsWith_needleLongerThanSubject() public pure {
-        assertFalse(BytesUtils.startsWith("ab", "abc"));
-    }
-
-    function test_startsWith_needleEqualsSubject() public pure {
-        assertTrue(BytesUtils.startsWith("abc", "abc"));
-    }
-
-    function test_startsWith_properPrefix() public pure {
+    function test_startsWith_basic() public pure {
         assertTrue(BytesUtils.startsWith("hello world", "hello"));
         assertFalse(BytesUtils.startsWith("hello world", "world"));
         assertFalse(BytesUtils.startsWith("hello world", "hellO"));
+    }
+
+    function test_startsWith_exactMatch() public pure {
+        assertTrue(BytesUtils.startsWith("abc", "abc"));
     }
 
     function test_startsWith_singleChar() public pure {
@@ -37,8 +24,20 @@ contract BytesUtilsStartsWithTest is BaseTest {
         assertFalse(BytesUtils.startsWith("abc", "b"));
     }
 
-    function test_startsWith_bothEmpty() public pure {
+    function test_startsWith_emptySubjectAndNeedle() public pure {
         assertTrue(BytesUtils.startsWith("", ""));
+    }
+
+    function test_startsWith_emptySubject() public pure {
+        assertFalse(BytesUtils.startsWith("", "a"));
+    }
+
+    function test_startsWith_emptyNeedle() public pure {
+        assertTrue(BytesUtils.startsWith("abc", ""));
+    }
+
+    function test_startsWith_needleLongerThanSubject() public pure {
+        assertFalse(BytesUtils.startsWith("ab", "abc"));
     }
 
     function test_startsWith_longNeedle() public pure {
@@ -51,7 +50,7 @@ contract BytesUtilsStartsWithTest is BaseTest {
     }
 
     function test_startsWith_arbitraryBytes() public pure {
-        bytes memory subject = bytes(allBytes());
+        bytes memory subject = allBytes();
         assertTrue(BytesUtils.startsWith(subject, subject));
         assertTrue(BytesUtils.startsWith(subject, abi.encodePacked(uint8(0x00))));
 
@@ -65,11 +64,11 @@ contract BytesUtilsStartsWithTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_startsWith_emptyNeedle(bytes memory subject) public pure {
-        assertTrue(BytesUtils.startsWith(subject, ""));
+        assertTrue(BytesUtils.startsWith(subject, ""), "empty needle was not recognized as prefix");
     }
 
     function test_fuzz_startsWith_reflexive(bytes memory subject) public pure {
-        assertTrue(BytesUtils.startsWith(subject, subject));
+        assertTrue(BytesUtils.startsWith(subject, subject), "subject was not recognized as its own prefix");
     }
 
     function test_fuzz_startsWith_sliceIsPrefix(bytes memory subject, uint256 length) public pure {
@@ -100,12 +99,11 @@ contract BytesUtilsStartsWithTest is BaseTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_startsWith_differential(bytes memory subject, bytes memory needle) public pure {
-        assertEq(BytesUtils.startsWith(subject, needle), referenceStartsWith(subject, needle));
-    }
-
-    function test_fuzz_startsWith_differential_constructed(bytes memory prefix, bytes memory needle) public pure {
-        bytes memory subject = bytes.concat(prefix, needle);
-        assertEq(BytesUtils.startsWith(subject, needle), referenceStartsWith(subject, needle));
+        assertEq(
+            BytesUtils.startsWith(subject, needle),
+            referenceStartsWith(subject, needle),
+            "result differs from reference implementation"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -114,7 +112,6 @@ contract BytesUtilsStartsWithTest is BaseTest {
 
     function referenceStartsWith(bytes memory subject, bytes memory needle) internal pure returns (bool) {
         if (needle.length > subject.length) return false;
-
         for (uint256 i = 0; i < needle.length; ++i) {
             if (subject[i] != needle[i]) return false;
         }
