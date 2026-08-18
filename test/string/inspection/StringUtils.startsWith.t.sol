@@ -19,6 +19,10 @@ contract StringUtilsStartsWithTest is StringUtilsTest {
         assertTrue(StringUtils.startsWith("abc", "abc"));
     }
 
+    function test_startsWith_noMatch() public pure {
+        assertFalse(StringUtils.startsWith("abc", "xyz"));
+    }
+
     function test_startsWith_singleChar() public pure {
         assertTrue(StringUtils.startsWith("abc", "a"));
         assertFalse(StringUtils.startsWith("abc", "b"));
@@ -45,7 +49,6 @@ contract StringUtilsStartsWithTest is StringUtilsTest {
         assertTrue(StringUtils.startsWith(string.concat(needle, "tail"), needle));
         assertTrue(StringUtils.startsWith(needle, needle));
         assertFalse(StringUtils.startsWith(string.concat("head", needle), needle));
-        // 33 bytes: differs from the 32-byte needle only past the first word.
         assertFalse(StringUtils.startsWith(needle, string.concat(needle, "X")));
     }
 

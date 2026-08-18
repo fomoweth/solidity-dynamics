@@ -43,10 +43,10 @@ contract StringUtilsJoinTest is StringUtilsTest {
 
     function test_join_longStrings() public pure {
         string[] memory segments = arrayify(
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 64 chars
-            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", // 64 chars
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", // 64 chars
-            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" // 64 chars
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         );
         string memory delimiter = "----------------------------------------------------------------";
 

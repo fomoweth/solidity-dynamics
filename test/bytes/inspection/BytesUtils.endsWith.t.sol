@@ -19,6 +19,10 @@ contract BytesUtilsEndsWithTest is BytesUtilsTest {
         assertTrue(BytesUtils.endsWith("abc", "abc"));
     }
 
+    function test_endsWith_noMatch() public pure {
+        assertFalse(BytesUtils.endsWith("abc", "xyz"));
+    }
+
     function test_endsWith_singleChar() public pure {
         assertTrue(BytesUtils.endsWith("abc", "c"));
         assertFalse(BytesUtils.endsWith("abc", "b"));
@@ -46,7 +50,6 @@ contract BytesUtilsEndsWithTest is BytesUtilsTest {
         assertTrue(BytesUtils.endsWith(bytes.concat("head", needle), needle));
         assertTrue(BytesUtils.endsWith(needle, needle));
         assertFalse(BytesUtils.endsWith(bytes.concat(needle, "tail"), needle));
-        // 33 bytes: cannot fit in the 32-byte subject.
         assertFalse(BytesUtils.endsWith(needle, bytes.concat(needle, "X")));
     }
 

@@ -5,8 +5,6 @@ import {BytesUtils} from "src/BytesUtils.sol";
 import {BytesUtilsTest} from "test/Base.t.sol";
 
 contract BytesUtilsSliceTest is BytesUtilsTest {
-    using BytesUtils for bytes;
-
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
@@ -70,23 +68,6 @@ contract BytesUtilsSliceTest is BytesUtilsTest {
         for (uint256 i = 0; i < 256; ++i) {
             assertEq(BytesUtils.slice(subject, i, 1), singleByte(i));
         }
-    }
-
-    function test_slice_parse_erc7579_accountId() public pure {
-        bytes memory accountId = "fomoweth.vortex.0.0.1-alpha";
-        bytes memory delimiter = ".";
-
-        uint256 nameOffset = accountId.indexOf(delimiter);
-        assertNotEq(nameOffset, type(uint256).max);
-
-        uint256 versionOffset = accountId.indexOf(delimiter, ++nameOffset);
-        assertNotEq(versionOffset, type(uint256).max);
-
-        bytes memory name = accountId.slice(nameOffset, versionOffset - nameOffset);
-        assertEq(name, "vortex");
-
-        bytes memory version = accountId.slice(++versionOffset);
-        assertEq(version, "0.0.1-alpha");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

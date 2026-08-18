@@ -33,10 +33,10 @@ contract StringUtilsConcatTest is StringUtilsTest {
 
     function test_concat_longStrings() public pure {
         string[] memory segments = arrayify(
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 64 chars
-            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", // 64 chars
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", // 64 chars
-            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" // 64 chars
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         );
 
         uint256 expectedLength = 64 * segments.length;

@@ -48,7 +48,6 @@ contract StringUtilsIndexOfTest is StringUtilsTest {
     }
 
     function test_indexOf_overlapping() public pure {
-        // "aaa", find "aa" from 0 → first match at 0
         assertEq(StringUtils.indexOf("aaa", "aa"), 0);
     }
 
@@ -124,7 +123,7 @@ contract StringUtilsIndexOfTest is StringUtilsTest {
         if (index != NOT_FOUND) {
             assertEq(StringUtils.slice(subject, index, bytes(needle).length), needle, "index is not a real match");
             for (uint256 i = 0; i < index; ++i) {
-                assertFalse(matchesAt(bytes(subject), bytes(needle), i), "an earlier match exists");
+                assertFalse(matchesAt(subject, needle, i), "an earlier match exists");
             }
         }
     }
@@ -134,31 +133,23 @@ contract StringUtilsIndexOfTest is StringUtilsTest {
         if (index != NOT_FOUND) {
             bytes memory subjectBytes = bytes(subject);
             bytes memory needleBytes = bytes(needle);
+            assertLe(index + needleBytes.length, subjectBytes.length, "match runs past the subject");
 
-            uint256 subjectLength = subjectBytes.length;
-            uint256 needleLength = needleBytes.length;
-            assertLe(index + needleLength, subjectLength, "match runs past the subject");
-
-            for (uint256 i = 0; i < needleLength; ++i) {
+            for (uint256 i = 0; i < needleBytes.length; ++i) {
                 assertEq(subjectBytes[index + i], needleBytes[i], "index is not a real match");
             }
         }
     }
 
     function test_fuzz_indexOf_notFoundMeansAbsent(string memory subject, string memory needle) public pure {
-        bytes memory subjectBytes = bytes(subject);
-        bytes memory needleBytes = bytes(needle);
-
-        uint256 subjectLength = subjectBytes.length;
-        uint256 needleLength = needleBytes.length;
-        vm.assume(needleLength != 0 && subjectLength >= needleLength);
+        vm.assume(bytes(needle).length != 0 && bytes(subject).length >= bytes(needle).length);
 
         uint256 index = StringUtils.indexOf(subject, needle);
         assertEq(index != NOT_FOUND, vm.contains(subject, needle), "match existence disagrees with contains");
 
         if (index == NOT_FOUND) {
-            for (uint256 i = 0; i <= subjectLength - needleLength; ++i) {
-                assertFalse(matchesAt(bytes(subject), bytes(needle), i), "a match exists despite `NOT_FOUND`");
+            for (uint256 i = 0; i <= bytes(subject).length - bytes(needle).length; ++i) {
+                assertFalse(matchesAt(subject, needle, i), "a match exists despite `NOT_FOUND`");
             }
         }
     }
@@ -171,8 +162,8 @@ contract StringUtilsIndexOfTest is StringUtilsTest {
         }
     }
 
-    function test_fuzz_indexOf(string memory subject, string memory needle) public pure {
-        assertEq(StringUtils.indexOf(subject, needle), vm.indexOf(subject, needle));
+    function test_fuzz_indexOf_agreesWithCheatcode(string memory subject, string memory needle) public pure {
+        assertEq(StringUtils.indexOf(subject, needle), vm.indexOf(subject, needle), "result differs from cheatcode");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -208,7 +199,7 @@ contract StringUtilsIndexOfTest is StringUtilsTest {
         if (bytes(needle).length == 0) return offset;
 
         for (uint256 i = offset; i + bytes(needle).length <= bytes(subject).length; ++i) {
-            if (matchesAt(bytes(subject), bytes(needle), i)) return i;
+            if (matchesAt(subject, needle, i)) return i;
         }
 
         return NOT_FOUND;

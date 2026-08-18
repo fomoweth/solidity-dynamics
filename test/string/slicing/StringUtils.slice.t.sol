@@ -5,8 +5,6 @@ import {StringUtils} from "src/StringUtils.sol";
 import {StringUtilsTest} from "test/Base.t.sol";
 
 contract StringUtilsSliceTest is StringUtilsTest {
-    using StringUtils for string;
-
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
     // ─────────────────────────────────────────────────────────────────────────────
@@ -76,17 +74,17 @@ contract StringUtilsSliceTest is StringUtilsTest {
         string memory accountId = "fomoweth.vortex.0.0.1-alpha";
         string memory delimiter = ".";
 
-        uint256 nameOffset = accountId.indexOf(delimiter);
+        uint256 nameOffset = StringUtils.indexOf(accountId, delimiter);
         assertNotEq(nameOffset, type(uint256).max);
 
-        uint256 versionOffset = accountId.indexOf(delimiter, ++nameOffset);
+        uint256 versionOffset = StringUtils.indexOf(accountId, delimiter, ++nameOffset);
         assertNotEq(versionOffset, type(uint256).max);
 
-        string memory name = accountId.slice(nameOffset, versionOffset - nameOffset);
+        string memory name = StringUtils.slice(accountId, nameOffset, versionOffset - nameOffset);
         assertEq(name, "vortex");
         assertEq(capitalize(name), "Vortex");
 
-        string memory version = accountId.slice(++versionOffset);
+        string memory version = StringUtils.slice(accountId, ++versionOffset);
         assertEq(version, "0.0.1-alpha");
     }
 

@@ -19,6 +19,10 @@ contract StringUtilsEndsWithTest is StringUtilsTest {
         assertTrue(StringUtils.endsWith("abc", "abc"));
     }
 
+    function test_endsWith_noMatch() public pure {
+        assertFalse(StringUtils.endsWith("abc", "xyz"));
+    }
+
     function test_endsWith_singleChar() public pure {
         assertTrue(StringUtils.endsWith("abc", "c"));
         assertFalse(StringUtils.endsWith("abc", "b"));
@@ -46,7 +50,6 @@ contract StringUtilsEndsWithTest is StringUtilsTest {
         assertTrue(StringUtils.endsWith(string.concat("head", needle), needle));
         assertTrue(StringUtils.endsWith(needle, needle));
         assertFalse(StringUtils.endsWith(string.concat(needle, "tail"), needle));
-        // 33 bytes: cannot fit in the 32-byte subject.
         assertFalse(StringUtils.endsWith(needle, string.concat(needle, "X")));
     }
 

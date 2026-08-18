@@ -5,7 +5,7 @@ import {StringUtils} from "src/StringUtils.sol";
 import {StringUtilsTest} from "test/Base.t.sol";
 
 contract StringUtilsTrimTest is StringUtilsTest {
-    string internal constant WS = " \t\n\x0b\x0c\r ";
+    string internal constant WS = "\t\n\x0b\x0c\r ";
 
     // ─────────────────────────────────────────────────────────────────────────────
     //  Unit
@@ -157,18 +157,24 @@ contract StringUtilsTrimTest is StringUtilsTest {
         assertEq(StringUtils.trimEnd(once), once, "repeated trimEnd changed result");
     }
 
-    function test_fuzz_trim(string memory subject) public pure {
-        assertEq(StringUtils.trim(subject), vm.trim(subject), "result differs from vm.trim");
+    function test_fuzz_trim_agreesWithCheatcode(string memory subject) public pure {
+        string memory expected = vm.trim(subject);
+        string memory result = StringUtils.trim(subject);
+
+        assertEq(result, expected, "result differs from cheatcode");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_trimStart(string memory subject) public pure {
-        bytes memory buffer = bytes(StringUtils.trimStart(subject));
-        if (buffer.length != 0) assertFalse(isWhitespace(buffer[0]), "leading whitespace remains");
+        bytes memory result = bytes(StringUtils.trimStart(subject));
+        if (result.length != 0) assertFalse(isWhitespace(result[0]), "leading whitespace remains");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_trimEnd(string memory subject) public pure {
-        bytes memory buffer = bytes(StringUtils.trimEnd(subject));
-        if (buffer.length != 0) assertFalse(isWhitespace(buffer[buffer.length - 1]), "trailing whitespace remains");
+        bytes memory result = bytes(StringUtils.trimEnd(subject));
+        if (result.length != 0) assertFalse(isWhitespace(result[result.length - 1]), "trailing whitespace remains");
+        assertMemoryInvariants(result);
     }
 
     function test_fuzz_trim_compose(bytes memory buffer, uint256 seed) public pure {
@@ -277,11 +283,11 @@ contract StringUtilsTrimTest is StringUtilsTest {
     }
 
     function isWhitespace(bytes1 char) internal pure returns (bool) {
-        return char == bytes1(0x09) // horizontal tab (`\t`)
-            || char == bytes1(0x0a) // line feed (`\n`)
-            || char == bytes1(0x0b) // vertical tab (`\v`)
-            || char == bytes1(0x0c) // form feed (`\f`)
-            || char == bytes1(0x0d) // carriage return (`\r`)
-            || char == bytes1(0x20); // space (` `)
+        return char == 0x09 // horizontal tab (`\t`)
+            || char == 0x0a // line feed (`\n`)
+            || char == 0x0b // vertical tab (`\v`)
+            || char == 0x0c // form feed (`\f`)
+            || char == 0x0d // carriage return (`\r`)
+            || char == 0x20; // space (` `)
     }
 }

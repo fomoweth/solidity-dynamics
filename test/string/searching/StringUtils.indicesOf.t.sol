@@ -126,7 +126,6 @@ contract StringUtilsIndicesOfTest is StringUtilsTest {
 
             if (i != 0) {
                 assertGt(indices[i], indices[i - 1], "indices are not strictly increasing");
-                // Non-empty matches are consumed in full, so they cannot overlap.
                 assertGe(indices[i], indices[i - 1] + bytes(needle).length, "matches overlap");
             }
         }
@@ -184,7 +183,7 @@ contract StringUtilsIndicesOfTest is StringUtilsTest {
         uint256 length = 0;
 
         for (uint256 i = 0; i + bytes(needle).length <= bytes(subject).length;) {
-            if (matchesAt(bytes(subject), bytes(needle), i)) {
+            if (matchesAt(subject, needle, i)) {
                 indices[length++] = i;
                 if (bytes(needle).length != 0) {
                     i += bytes(needle).length;

@@ -132,9 +132,9 @@ contract StringUtilsSplitTest is StringUtilsTest {
         );
     }
 
-    function test_fuzz_split(string memory subject, string memory delimiter) public pure {
+    function test_fuzz_split_agreesWithCheatcode(string memory subject, string memory delimiter) public pure {
         vm.assume(bytes(subject).length != 0 && bytes(delimiter).length != 0);
-        assertEq(StringUtils.split(subject, delimiter), vm.split(subject, delimiter), "result differs from vm.split");
+        assertEq(StringUtils.split(subject, delimiter), vm.split(subject, delimiter), "result differs from cheatcode");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

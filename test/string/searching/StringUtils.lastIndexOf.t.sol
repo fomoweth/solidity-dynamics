@@ -165,20 +165,17 @@ contract StringUtilsLastIndexOfTest is StringUtilsTest {
         pure
         returns (uint256)
     {
-        uint256 subjectLength = bytes(subject).length;
-        uint256 needleLength = bytes(needle).length;
+        offset = min(offset, bytes(subject).length);
+        if (bytes(needle).length == 0) return offset;
+        if (bytes(needle).length > bytes(subject).length) return NOT_FOUND;
 
-        offset = min(offset, subjectLength);
-        if (needleLength == 0) return offset;
-        if (needleLength > subjectLength) return NOT_FOUND;
-
-        if (offset + needleLength > subjectLength) {
-            offset = subjectLength - needleLength;
+        if (offset + bytes(needle).length > bytes(subject).length) {
+            offset = bytes(subject).length - bytes(needle).length;
         }
 
         // iterate from start downward
         for (uint256 i = offset;;) {
-            if (matchesAt(bytes(subject), bytes(needle), i)) return i;
+            if (matchesAt(subject, needle, i)) return i;
             if (i == 0) break;
             i--;
         }

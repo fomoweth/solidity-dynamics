@@ -6,7 +6,7 @@ import {StringUtilsTest} from "test/Base.t.sol";
 
 contract StringUtilsPadTest is StringUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
-    //  Unit
+    //  Unit: padStart
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_padStart_basic() public pure {
@@ -53,6 +53,10 @@ contract StringUtilsPadTest is StringUtilsTest {
         assertEq(StringUtils.padStart("abc", "xyz", 4), "xabc");
         assertEq(StringUtils.padStart("abc", "xyz", 5), "xyabc");
     }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    //  Unit: padEnd
+    // ─────────────────────────────────────────────────────────────────────────────
 
     function test_padEnd_basic() public pure {
         assertEq(StringUtils.padEnd("5", "0", 3), "500");
@@ -102,45 +106,54 @@ contract StringUtilsPadTest is StringUtilsTest {
     // ─────────────────────────────────────────────────────────────────────────────
 
     function test_fuzz_padStart_emptyNeedleIsIdentity(string memory subject, uint16 length) public pure {
-        assertEq(StringUtils.padStart(subject, "", length), subject);
+        assertEq(StringUtils.padStart(subject, "", length), subject, "empty needle changed subject");
     }
 
     function test_fuzz_padEnd_emptyNeedleIsIdentity(string memory subject, uint16 length) public pure {
-        assertEq(StringUtils.padEnd(subject, "", length), subject);
+        assertEq(StringUtils.padEnd(subject, "", length), subject, "empty needle changed subject");
     }
 
     function test_fuzz_padStart_neverShrinks(string memory subject, string memory needle, uint16 length) public pure {
-        assertGe(bytes(StringUtils.padStart(subject, needle, length)).length, bytes(subject).length);
+        string memory result = StringUtils.padStart(subject, needle, length);
+        assertGe(bytes(result).length, bytes(subject).length, "padStart shortened subject");
     }
 
     function test_fuzz_padEnd_neverShrinks(string memory subject, string memory needle, uint16 length) public pure {
-        assertGe(bytes(StringUtils.padEnd(subject, needle, length)).length, bytes(subject).length);
+        string memory result = StringUtils.padEnd(subject, needle, length);
+        assertGe(bytes(result).length, bytes(subject).length, "padEnd shortened subject");
     }
 
     function test_fuzz_padEnd_paddingIsCyclic(string memory subject, string memory needle, uint16 length) public pure {
+        bytes memory subjectBytes = bytes(subject);
         bytes memory needleBytes = bytes(needle);
         vm.assume(needleBytes.length != 0);
 
         bytes memory result = bytes(StringUtils.padEnd(subject, needle, length));
-        for (uint256 i = bytes(subject).length; i < result.length; ++i) {
-            assertEq(result[i], needleBytes[(i - bytes(subject).length) % needleBytes.length]);
+
+        for (uint256 i = subjectBytes.length; i < result.length; ++i) {
+            assertEq(
+                result[i],
+                needleBytes[(i - subjectBytes.length) % needleBytes.length],
+                "padEnd padding does not follow needle cyclically"
+            );
         }
     }
 
-    function test_fuzz_padString_resultLengthAndAffixes(string memory subject, string memory needle, uint16 length)
+    function test_fuzz_pad_resultLengthAndAffixes(string memory subject, string memory needle, uint16 length)
         public
         pure
     {
         vm.assume(bytes(needle).length != 0);
 
         uint256 expectedLength = max(length, bytes(subject).length);
+
         string memory result = StringUtils.padStart(subject, needle, length);
-        assertEq(bytes(result).length, expectedLength);
-        assertTrue(StringUtils.endsWith(result, subject));
+        assertEq(bytes(result).length, expectedLength, "padStart produced incorrect length");
+        assertTrue(StringUtils.endsWith(result, subject), "padStart does not preserve subject as suffix");
 
         result = StringUtils.padEnd(subject, needle, length);
-        assertEq(bytes(result).length, expectedLength);
-        assertTrue(StringUtils.startsWith(result, subject));
+        assertEq(bytes(result).length, expectedLength, "padEnd produced incorrect length");
+        assertTrue(StringUtils.startsWith(result, subject), "padEnd does not preserve subject as prefix");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
