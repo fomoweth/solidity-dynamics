@@ -372,31 +372,473 @@ library StringUtils {
                                             CONSTRUCTION
     ///////////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    function concat(string[] memory segments) internal pure returns (string memory result) {}
+    /// @notice Concatenates a sequence of strings.
+    /// @dev Returns an empty string if the array is empty.
+    /// @param segments The array of strings to concatenate.
+    /// @return result The concatenated string.
+    function concat(string[] memory segments) internal pure returns (string memory result) {
+        assembly ("memory-safe") {
+            // Construct the output directly at the current free-memory pointer.
+            result := mload(0x40)
+            let ptr := add(result, 0x20)
 
-    function join(string[] memory segments, string memory delimiter) internal pure returns (string memory result) {}
+            // Load the segment count.
+            let segmentsLength := mload(segments)
 
-    function split(string memory subject, string memory delimiter) internal pure returns (string[] memory result) {}
+            if segmentsLength {
+                // Derive the segment pointer range.
+                let cursor := add(segments, 0x20)
+                let end := add(cursor, shl(0x05, segmentsLength))
 
+                // Copy each segment sequentially.
+                for {} lt(cursor, end) { cursor := add(cursor, 0x20) } {
+                    let segment := mload(cursor)
+                    let length := mload(segment)
+
+                    mcopy(ptr, add(segment, 0x20), length)
+                    ptr := add(ptr, length)
+                }
+            }
+
+            // Store the output length.
+            mstore(result, sub(ptr, add(result, 0x20)))
+
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
+
+            // Advance the free-memory pointer.
+            mstore(0x40, and(add(ptr, 0x3f), not(0x1f)))
+        }
+    }
+
+    /// @notice Joins a sequence of strings with a delimiter between adjacent elements.
+    /// @dev Returns an empty string if the array is empty.
+    /// @param segments The array of strings to join.
+    /// @param delimiter The delimiter inserted between consecutive strings.
+    /// @return result The joined string.
+    function join(string[] memory segments, string memory delimiter) internal pure returns (string memory result) {
+        assembly ("memory-safe") {
+            // Construct the output directly at the current free-memory pointer.
+            result := mload(0x40)
+            let ptr := add(result, 0x20)
+
+            // Load the segment count.
+            let segmentsLength := mload(segments)
+
+            if segmentsLength {
+                // Load the delimiter length and advance to its byte data.
+                let delimiterLength := mload(delimiter)
+                delimiter := add(delimiter, 0x20)
+
+                // Derive the segment pointer table.
+                let table := add(segments, 0x20)
+                let size := shl(0x05, segmentsLength)
+
+                // Copy each segment sequentially, inserting the delimiter between segments.
+                for { let offset := 0x00 } lt(offset, size) { offset := add(offset, 0x20) } {
+                    if offset {
+                        mcopy(ptr, delimiter, delimiterLength)
+                        ptr := add(ptr, delimiterLength)
+                    }
+
+                    let segment := mload(add(table, offset))
+                    let length := mload(segment)
+
+                    mcopy(ptr, add(segment, 0x20), length)
+                    ptr := add(ptr, length)
+                }
+            }
+
+            // Store the output length.
+            mstore(result, sub(ptr, add(result, 0x20)))
+
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
+
+            // Advance the free-memory pointer.
+            mstore(0x40, and(add(ptr, 0x3f), not(0x1f)))
+        }
+    }
+
+    /// @notice Splits a string on non-overlapping occurrences of a delimiter.
+    /// @dev An empty delimiter produces one independently allocated single-byte
+    ///      string per byte, and therefore an empty array for an empty string.
+    ///      Leading, trailing, and adjacent delimiters produce empty strings.
+    /// @param subject The string to split.
+    /// @param delimiter The substring at which to split.
+    /// @return result The resulting substrings.
+    function split(string memory subject, string memory delimiter) internal pure returns (string[] memory result) {
+        assembly ("memory-safe") {
+            // Construct the output directly at the current free-memory pointer.
+            result := mload(0x40)
+            let slot := add(result, 0x20)
+            let ptr := slot
+
+            // Load the input byte lengths.
+            let subjectLength := mload(subject)
+            let delimiterLength := mload(delimiter)
+
+            // Advance to the input byte data.
+            subject := add(subject, 0x20)
+            delimiter := add(delimiter, 0x20)
+
+            switch delimiterLength
+            case 0x00 {
+                // An empty delimiter produces one single-byte string per byte.
+                mstore(result, subjectLength)
+
+                // Advance past the outer array's element-pointer table.
+                ptr := add(ptr, shl(0x05, subjectLength))
+
+                for { let i := 0x00 } lt(i, subjectLength) { i := add(i, 0x01) } {
+                    // Store the pointer to the next single-byte string in the outer array.
+                    mstore(slot, ptr)
+
+                    // Construct a one-byte string in a zero-padded word.
+                    mstore(ptr, 0x01)
+                    mstore(add(ptr, 0x20), and(mload(add(subject, i)), shl(0xf8, 0xff)))
+
+                    // Advance to the next string allocation and element slot.
+                    ptr := add(ptr, 0x40)
+                    slot := add(slot, 0x20)
+                }
+            }
+            default {
+                // Initialize the subject range and traversal pointers.
+                let cursor := subject
+                let previous := subject
+                let end := add(subject, subjectLength)
+
+                // Derive the exclusive search boundary when the delimiter can fit.
+                let guard := 0x00
+                if iszero(gt(delimiterLength, subjectLength)) {
+                    guard := add(sub(end, delimiterLength), 0x01)
+                }
+
+                // Derive the shift used to compare the significant leading bytes.
+                let maskShift := mul(shl(0x03, sub(0x20, delimiterLength)), lt(delimiterLength, 0x20))
+
+                // Delimiters of at least 32-bytes additionally require a full-length hash comparison.
+                let requiresHash := iszero(lt(delimiterLength, 0x20))
+                let delimiterWord := mload(delimiter)
+                let delimiterHash := 0x00
+                if requiresHash { delimiterHash := keccak256(delimiter, delimiterLength) }
+
+                // First pass: count the resulting parts.
+                let partCount := 0x01 // One more than the number of delimiter occurrences.
+
+                for {} lt(cursor, guard) {} {
+                    let matched := iszero(shr(maskShift, xor(mload(cursor), delimiterWord)))
+
+                    if and(matched, requiresHash) {
+                        matched := eq(keccak256(cursor, delimiterLength), delimiterHash)
+                    }
+
+                    if matched {
+                        partCount := add(partCount, 0x01)
+                        cursor := add(cursor, delimiterLength)
+                        continue
+                    }
+
+                    cursor := add(cursor, 0x01)
+                }
+
+                // Store the output element count.
+                mstore(result, partCount)
+
+                // Advance past the outer array's element-pointer table.
+                ptr := add(ptr, shl(0x05, partCount))
+
+                // Second pass: construct every part, including the final part.
+                for { cursor := subject } 0x01 {} {
+                    // Default to the subject end when no further delimiter matches.
+                    let boundary := end
+                    let matched := 0x00
+
+                    // Search only while a complete delimiter can begin at `cursor`.
+                    // A zero `guard` disables searching when the delimiter cannot fit.
+                    if lt(cursor, guard) {
+                        matched := iszero(shr(maskShift, xor(mload(cursor), delimiterWord)))
+
+                        if and(matched, requiresHash) {
+                            matched := eq(keccak256(cursor, delimiterLength), delimiterHash)
+                        }
+
+                        if iszero(matched) {
+                            cursor := add(cursor, 0x01)
+                            continue
+                        }
+
+                        boundary := cursor
+                    }
+
+                    // Construct the substring spanning [previous, boundary).
+                    // Empty intervals preserve leading, trailing, and adjacent delimiter semantics.
+                    let length := sub(boundary, previous)
+
+                    // Store the element pointer in the outer array.
+                    mstore(slot, ptr)
+
+                    // Construct the string object and copy its bytes.
+                    mstore(ptr, length)
+                    mcopy(add(ptr, 0x20), previous, length)
+
+                    // Advance by the string header and data.
+                    ptr := add(add(ptr, 0x20), length)
+
+                    // Zeroize the trailing memory word.
+                    mstore(ptr, 0x00)
+
+                    // Advance to the next aligned allocation and element slot.
+                    ptr := and(add(ptr, 0x3f), not(0x1f))
+                    slot := add(slot, 0x20)
+
+                    // A non-match at the boundary completes the final substring.
+                    if iszero(matched) { break }
+
+                    // Consume the delimiter and begin the next substring after it.
+                    cursor := add(cursor, delimiterLength)
+                    previous := cursor
+                }
+            }
+
+            // Advance the free-memory pointer past the outer array and nested strings.
+            mstore(0x40, ptr)
+        }
+    }
+
+    /// @notice Replaces every non-overlapping occurrence of a substring within a string.
+    /// @dev Searches from left to right and does not rescan newly inserted replacement bytes.
+    ///      An empty substring matches at every byte boundary, including before the first
+    ///      byte and after the last byte.
+    /// @param subject The string to search within.
+    /// @param needle The substring to replace, interpreted as a byte sequence.
+    /// @param replacement The substring to substitute for each occurrence.
+    /// @return result The string with all matching occurrences replaced.
     function replace(string memory subject, string memory needle, string memory replacement)
         internal
         pure
         returns (string memory result)
-    {}
+    {
+        assembly ("memory-safe") {
+            // Construct the output directly at the current free-memory pointer.
+            result := mload(0x40)
 
-    function repeat(string memory subject, uint256 count) internal pure returns (string memory result) {}
+            // Derive the source-to-destination pointer displacement.
+            let displacement := sub(result, subject)
 
+            // Load the input byte lengths.
+            let subjectLength := mload(subject)
+            let needleLength := mload(needle)
+            let replacementLength := mload(replacement)
+
+            // Derive the subject byte range.
+            let cursor := add(subject, 0x20)
+            let end := add(cursor, subjectLength)
+
+            // Search only when the needle fits within the subject.
+            if iszero(gt(needleLength, subjectLength)) {
+                // Advance to the needle and replacement byte data.
+                needle := add(needle, 0x20)
+                replacement := add(replacement, 0x20)
+
+                // Derive the exclusive search boundary, including the final boundary for an empty needle.
+                let guard := add(sub(end, needleLength), 0x01)
+
+                // Derive the shift used to compare the significant leading bytes.
+                let maskShift := mul(shl(0x03, sub(0x20, needleLength)), lt(needleLength, 0x20))
+
+                // Needles of at least 32-bytes additionally require a full-length hash comparison.
+                let requiresHash := iszero(lt(needleLength, 0x20))
+                let needleWord := mload(needle)
+                let needleHash := 0x00
+                if requiresHash { needleHash := keccak256(needle, needleLength) }
+
+                // Search from left to right and consume matches without overlap.
+                for {} lt(cursor, guard) {} {
+                    let candidate := mload(cursor)
+                    let matched := iszero(shr(maskShift, xor(candidate, needleWord)))
+
+                    if and(matched, requiresHash) {
+                        matched := eq(keccak256(cursor, needleLength), needleHash)
+                    }
+
+                    if matched {
+                        // Copy the replacement at the corresponding destination.
+                        mcopy(add(cursor, displacement), replacement, replacementLength)
+
+                        // Adjust the displacement by the replacement-to-needle length difference.
+                        displacement := sub(add(displacement, replacementLength), needleLength)
+
+                        // Consume non-empty matches in full.
+                        // Empty matches fall through to copy the current subject byte.
+                        if needleLength {
+                            cursor := add(cursor, needleLength)
+                            continue
+                        }
+                    }
+
+                    // Copy the current subject byte using a full-word write.
+                    mstore(add(cursor, displacement), candidate)
+                    cursor := add(cursor, 0x01)
+                }
+            }
+
+            // Copy the remaining suffix, if any.
+            if lt(cursor, end) { mcopy(add(cursor, displacement), cursor, sub(end, cursor)) }
+
+            // Derive the logical output end.
+            let ptr := add(displacement, end)
+
+            // Store the output length.
+            mstore(result, sub(ptr, add(result, 0x20)))
+
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
+
+            // Advance the free-memory pointer.
+            mstore(0x40, and(add(ptr, 0x3f), not(0x1f)))
+        }
+    }
+
+    /// @notice Repeats a string a specified number of times.
+    /// @dev Returns an empty string if the input is empty or the repetition count is zero.
+    /// @param subject The string to repeat.
+    /// @param count The number of repetitions.
+    /// @return result The repeated string.
+    function repeat(string memory subject, uint256 count) internal pure returns (string memory result) {
+        assembly ("memory-safe") {
+            // Construct the output directly at the current free-memory pointer.
+            result := mload(0x40)
+            let ptr := add(result, 0x20)
+
+            // Load the subject length and advance to its byte data.
+            let subjectLength := mload(subject)
+            subject := add(subject, 0x20)
+
+            if iszero(or(iszero(count), iszero(subjectLength))) {
+                let stride := not(0x00) // -1 modulo 2²⁵⁶
+
+                // Copy the subject once per iteration.
+                for { let remaining := count } remaining { remaining := add(remaining, stride) } {
+                    mcopy(ptr, subject, subjectLength)
+                    ptr := add(ptr, subjectLength)
+                }
+            }
+
+            // Store the output length.
+            mstore(result, sub(ptr, add(result, 0x20)))
+
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
+
+            // Advance the free-memory pointer.
+            mstore(0x40, and(add(ptr, 0x3f), not(0x1f)))
+        }
+    }
+
+    /// @notice Left-pads a string to at least a specified byte length by cyclically repeating a specified
+    ///         padding string, truncating the final repetition as needed.
+    /// @dev Returns an unchanged copy if no padding is required or the padding string is empty.
+    /// @param subject The string to pad.
+    /// @param needle The string cyclically repeated as padding.
+    /// @param length The minimum byte length of the resulting string.
+    /// @return result The left-padded string.
     function padStart(string memory subject, string memory needle, uint256 length)
         internal
         pure
         returns (string memory result)
-    {}
+    {
+        assembly ("memory-safe") {
+            // Construct the output directly at the current free-memory pointer.
+            result := mload(0x40)
+            let ptr := add(result, 0x20)
 
+            // Load the input byte lengths.
+            let subjectLength := mload(subject)
+            let needleLength := mload(needle)
+
+            // Preserve the original byte length if no padding is required or the padding string is empty.
+            if or(lt(length, subjectLength), iszero(needleLength)) { length := subjectLength }
+
+            // The subject begins immediately after the padding region.
+            let cursor := ptr
+            let end := add(ptr, sub(length, subjectLength))
+            mcopy(end, add(subject, 0x20), subjectLength)
+
+            // Fill the padding region with cyclic repetitions of the needle.
+            for { needle := add(needle, 0x20) } lt(cursor, end) {} {
+                let size := needleLength
+                let remaining := sub(end, cursor)
+                if gt(size, remaining) { size := remaining }
+
+                mcopy(cursor, needle, size)
+                cursor := add(cursor, size)
+            }
+
+            // Store the output length.
+            mstore(result, length)
+
+            // Derive the logical output end.
+            ptr := add(ptr, length)
+
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
+
+            // Advance the free-memory pointer.
+            mstore(0x40, and(add(ptr, 0x3f), not(0x1f)))
+        }
+    }
+
+    /// @notice Right-pads a string to at least a specified byte length by cyclically repeating a specified
+    ///         padding string, truncating the final repetition as needed.
+    /// @dev Returns an unchanged copy if no padding is required or the padding string is empty.
+    /// @param subject The string to pad.
+    /// @param needle The string cyclically repeated as padding.
+    /// @param length The minimum byte length of the resulting string.
+    /// @return result The right-padded string.
     function padEnd(string memory subject, string memory needle, uint256 length)
         internal
         pure
         returns (string memory result)
-    {}
+    {
+        assembly ("memory-safe") {
+            // Construct the output directly at the current free-memory pointer.
+            result := mload(0x40)
+            let ptr := add(result, 0x20)
+
+            // Load the input byte lengths.
+            let subjectLength := mload(subject)
+            let needleLength := mload(needle)
+
+            // Preserve the original byte length if no padding is required or the padding string is empty.
+            if or(iszero(gt(length, subjectLength)), iszero(needleLength)) { length := subjectLength }
+
+            // The padding region begins immediately after the copied subject.
+            let cursor := add(ptr, subjectLength)
+            let end := add(ptr, length)
+            mcopy(ptr, add(subject, 0x20), subjectLength)
+
+            // Fill the padding region with cyclic repetitions of the needle.
+            for { needle := add(needle, 0x20) } lt(cursor, end) {} {
+                let size := needleLength
+                let remaining := sub(end, cursor)
+                if gt(size, remaining) { size := remaining }
+
+                mcopy(cursor, needle, size)
+                cursor := add(cursor, size)
+            }
+
+            // Store the output length.
+            mstore(result, length)
+
+            // Zeroize the trailing memory word.
+            mstore(end, 0x00)
+
+            // Advance the free-memory pointer.
+            mstore(0x40, and(add(end, 0x3f), not(0x1f)))
+        }
+    }
 
     /*///////////////////////////////////////////////////////////////////////////////////////////////////////
                                             SLICING
