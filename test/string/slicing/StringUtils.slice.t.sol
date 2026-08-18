@@ -63,6 +63,19 @@ contract StringUtilsSliceTest is BaseTest {
         assertEq(StringUtils.slice("hello", 3, type(uint256).max - 2), "lo");
     }
 
+    function test_slice_arbitraryBytes() public pure {
+        string memory subject = allBytes();
+        assertEq(bytes(StringUtils.slice(subject, 0, 256)).length, 256);
+
+        for (uint256 i = 0; i < 256; ++i) {
+            assertEq(StringUtils.slice(subject, i, 1), singleByte(i));
+        }
+
+        assertEq(StringUtils.slice(subject, 0, 2), string(abi.encodePacked(bytes2(0x0001))));
+        assertEq(StringUtils.slice(subject, 128, 2), string(abi.encodePacked(bytes2(0x8081))));
+        assertEq(StringUtils.slice(subject, 254, 2), string(abi.encodePacked(bytes2(0xfeff))));
+    }
+
     function test_slice_returnsIndependentCopy() public pure {
         string memory subject = "hello";
         string memory result = StringUtils.slice(subject, 0, 5);
