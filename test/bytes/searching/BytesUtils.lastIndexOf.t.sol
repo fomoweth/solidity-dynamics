@@ -65,6 +65,18 @@ contract BytesUtilsLastIndexOfTest is BaseTest {
         assertEq(BytesUtils.lastIndexOf(subject, needle), needle.length + 3);
     }
 
+    function test_lastIndexOf_arbitraryBytes() public pure {
+        bytes memory subject = bytes(allBytes());
+
+        for (uint256 i = 0; i < 256; ++i) {
+            assertEq(BytesUtils.lastIndexOf(subject, abi.encodePacked(uint8(i))), i);
+        }
+
+        assertEq(BytesUtils.lastIndexOf(subject, abi.encodePacked(bytes2(0x0001))), 0);
+        assertEq(BytesUtils.lastIndexOf(subject, abi.encodePacked(bytes2(0x8081))), 128);
+        assertEq(BytesUtils.lastIndexOf(subject, abi.encodePacked(bytes2(0xfeff))), 254);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────────
     //  Fuzz
     // ─────────────────────────────────────────────────────────────────────────────

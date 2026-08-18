@@ -6,6 +6,19 @@ import {Test} from "forge-std/Test.sol";
 abstract contract BaseTest is Test {
     uint256 internal constant NOT_FOUND = type(uint256).max;
 
+    function allBytes() internal pure returns (string memory) {
+        bytes memory buffer = new bytes(256);
+        for (uint256 i = 0; i < 256; ++i) {
+            buffer[i] = bytes1(uint8(i));
+        }
+        return string(buffer);
+    }
+
+    function singleByte(uint256 value) internal pure returns (string memory) {
+        vm.assume(value <= type(uint8).max);
+        return string(abi.encodePacked(bytes1(uint8(value))));
+    }
+
     function matchesAt(bytes memory subject, bytes memory needle, uint256 offset) internal pure returns (bool) {
         if (offset + needle.length > subject.length) return false;
         for (uint256 i = 0; i < needle.length; ++i) {

@@ -95,6 +95,18 @@ contract StringUtilsIndexOfTest is BaseTest {
         assertEq(StringUtils.indexOf(subject, needle33), NOT_FOUND);
     }
 
+    function test_indexOf_arbitraryBytes() public pure {
+        string memory subject = allBytes();
+
+        for (uint256 i = 0; i < 256; ++i) {
+            assertEq(StringUtils.indexOf(subject, singleByte(i)), i);
+        }
+
+        assertEq(StringUtils.indexOf(subject, string(abi.encodePacked(bytes2(0x0001)))), 0);
+        assertEq(StringUtils.indexOf(subject, string(abi.encodePacked(bytes2(0x8081)))), 128);
+        assertEq(StringUtils.indexOf(subject, string(abi.encodePacked(bytes2(0xfeff)))), 254);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────────
     //  Fuzz
     // ─────────────────────────────────────────────────────────────────────────────

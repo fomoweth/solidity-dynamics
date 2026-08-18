@@ -98,6 +98,21 @@ contract BytesUtilsIndicesOfTest is BaseTest {
         assertEq(indices[1], needle.length + 1);
     }
 
+    function test_indicesOf_arbitraryBytes() public pure {
+        bytes memory subject = bytes(allBytes());
+        uint256[] memory indices;
+
+        for (uint256 i = 0; i < 256; ++i) {
+            indices = BytesUtils.indicesOf(subject, abi.encodePacked(uint8(i)));
+            assertEq(indices.length, 1);
+            assertEq(indices[0], i);
+        }
+
+        indices = BytesUtils.indicesOf(subject, abi.encodePacked(bytes2(0xfeff)));
+        assertEq(indices.length, 1);
+        assertEq(indices[0], 254);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────────
     //  Fuzz
     // ─────────────────────────────────────────────────────────────────────────────

@@ -312,9 +312,39 @@ library BytesUtils {
         return contains(subject, needle, 0);
     }
 
-    function startsWith(bytes memory subject, bytes memory needle) internal pure returns (bool result) {}
+    /// @notice Determines whether a byte array begins with a byte sequence.
+    /// @dev An empty byte sequence always matches the beginning of a byte array.
+    /// @param subject The byte array to inspect.
+    /// @param needle The byte sequence to compare against the beginning of the byte array.
+    /// @return result Whether the byte array begins with the byte sequence.
+    function startsWith(bytes memory subject, bytes memory needle) internal pure returns (bool result) {
+        assembly ("memory-safe") {
+            let subjectLength := mload(subject)
+            let needleLength := mload(needle)
 
-    function endsWith(bytes memory subject, bytes memory needle) internal pure returns (bool result) {}
+            if iszero(gt(needleLength, subjectLength)) {
+                result := eq(keccak256(add(subject, 0x20), needleLength), keccak256(add(needle, 0x20), needleLength))
+            }
+        }
+    }
+
+    /// @notice Determines whether a byte array ends with a byte sequence.
+    /// @dev An empty byte sequence always matches the end of a byte array.
+    /// @param subject The byte array to inspect.
+    /// @param needle The byte sequence to compare against the end of the byte array.
+    /// @return result Whether the byte array ends with the byte sequence.
+    function endsWith(bytes memory subject, bytes memory needle) internal pure returns (bool result) {
+        assembly ("memory-safe") {
+            let subjectLength := mload(subject)
+            let needleLength := mload(needle)
+
+            if iszero(gt(needleLength, subjectLength)) {
+                // Derive the start of the candidate suffix.
+                let offset := add(add(subject, 0x20), sub(subjectLength, needleLength))
+                result := eq(keccak256(offset, needleLength), keccak256(add(needle, 0x20), needleLength))
+            }
+        }
+    }
 
     /*///////////////////////////////////////////////////////////////////////////////////////////////////////
                                             COMPARISON

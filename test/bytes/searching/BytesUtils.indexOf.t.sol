@@ -95,6 +95,18 @@ contract BytesUtilsIndexOfTest is BaseTest {
         assertEq(BytesUtils.indexOf(subject, needle33), NOT_FOUND);
     }
 
+    function test_indexOf_arbitraryBytes() public pure {
+        bytes memory subject = bytes(allBytes());
+
+        for (uint256 i = 0; i < 256; ++i) {
+            assertEq(BytesUtils.indexOf(subject, abi.encodePacked(uint8(i))), i);
+        }
+
+        assertEq(BytesUtils.indexOf(subject, abi.encodePacked(bytes2(0x0001))), 0);
+        assertEq(BytesUtils.indexOf(subject, abi.encodePacked(bytes2(0x8081))), 128);
+        assertEq(BytesUtils.indexOf(subject, abi.encodePacked(bytes2(0xfeff))), 254);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────────
     //  Fuzz
     // ─────────────────────────────────────────────────────────────────────────────
