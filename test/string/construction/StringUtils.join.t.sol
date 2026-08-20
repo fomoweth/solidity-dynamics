@@ -106,7 +106,6 @@ contract StringUtilsJoinTest is StringUtilsTest {
 
         string memory name = segments[1];
         assertEq(name, "vortex");
-        assertEq(capitalize(name), "Vortex");
 
         uint256 length = segments.length - 2;
         for (uint256 i = 0; i < length; ++i) {

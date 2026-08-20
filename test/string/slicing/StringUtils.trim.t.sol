@@ -142,6 +142,12 @@ contract StringUtilsTrimTest is StringUtilsTest {
     //  Fuzz
     // ─────────────────────────────────────────────────────────────────────────────
 
+    function test_fuzz_trim_overloadEquivalence(string memory subject) public pure {
+        assertEq(StringUtils.trim(subject), StringUtils.trim(subject, true, true));
+        assertEq(StringUtils.trimStart(subject), StringUtils.trim(subject, true, false));
+        assertEq(StringUtils.trimEnd(subject), StringUtils.trim(subject, false, true));
+    }
+
     function test_fuzz_trim_idempotent(string memory subject) public pure {
         string memory once = StringUtils.trim(subject);
         assertEq(StringUtils.trim(once), once, "repeated trim changed result");
@@ -233,17 +239,13 @@ contract StringUtilsTrimTest is StringUtilsTest {
     //  Reference implementation
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function referenceTrim(string memory subject, bool trimLeading, bool trimTrailing)
-        internal
-        pure
-        returns (string memory)
-    {
+    function referenceTrim(string memory subject, bool leading, bool trailing) internal pure returns (string memory) {
         bytes memory buffer = bytes(subject);
         uint256 start = 0;
         uint256 end = buffer.length;
 
-        if (trimLeading) while (start < end && isWhitespace(buffer[start])) start++;
-        if (trimTrailing) while (end > start && isWhitespace(buffer[end - 1])) end--;
+        if (leading) while (start < end && isWhitespace(buffer[start])) start++;
+        if (trailing) while (end > start && isWhitespace(buffer[end - 1])) end--;
 
         bytes memory result = new bytes(end - start);
         for (uint256 i = 0; i < result.length; ++i) {
@@ -256,7 +258,7 @@ contract StringUtilsTrimTest is StringUtilsTest {
     //  Helpers
     // ─────────────────────────────────────────────────────────────────────────────
 
-    function compose(bytes memory buffer, uint256 seed, bool useLeading, bool useTrailing)
+    function compose(bytes memory buffer, uint256 seed, bool leading, bool trailing)
         internal
         pure
         returns (string memory subject, string memory expected)
@@ -267,8 +269,8 @@ contract StringUtilsTrimTest is StringUtilsTest {
         }
 
         bytes memory ws = "\t\n\x0b\x0c\r ";
-        bytes memory leadingBytes = new bytes(useLeading ? seed % 7 : 0);
-        bytes memory trailingBytes = new bytes(useTrailing ? (seed >> 8) % 7 : 0);
+        bytes memory leadingBytes = new bytes(leading ? seed % 7 : 0);
+        bytes memory trailingBytes = new bytes(trailing ? (seed >> 8) % 7 : 0);
 
         for (uint256 i = 0; i < leadingBytes.length; ++i) {
             leadingBytes[i] = ws[(seed >> i) % 6];
@@ -278,16 +280,7 @@ contract StringUtilsTrimTest is StringUtilsTest {
             trailingBytes[i] = ws[(seed >> (i + 16)) % 6];
         }
 
-        subject = string(abi.encodePacked(leadingBytes, buffer, trailingBytes));
+        subject = string(bytes.concat(leadingBytes, buffer, trailingBytes));
         expected = string(buffer);
-    }
-
-    function isWhitespace(bytes1 char) internal pure returns (bool) {
-        return char == 0x09 // horizontal tab (`\t`)
-            || char == 0x0a // line feed (`\n`)
-            || char == 0x0b // vertical tab (`\v`)
-            || char == 0x0c // form feed (`\f`)
-            || char == 0x0d // carriage return (`\r`)
-            || char == 0x20; // space (` `)
     }
 }

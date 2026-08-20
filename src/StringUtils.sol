@@ -3,9 +3,25 @@ pragma solidity ^0.8.25;
 
 /// @title StringUtils
 /// @author fomoweth
+/// @notice Utilities for converting, formatting, comparing, inspecting, searching, constructing, and slicing strings.
 library StringUtils {
     /// @dev Thrown when a value cannot be represented within the requested hexadecimal byte length.
     error InsufficientHexStringLength();
+
+    /// @dev Thrown when a byte is not supported for case formatting.
+    error InvalidFormatChar();
+
+    /// @dev Thrown when an unsupported case convention is requested.
+    error InvalidCaseType();
+
+    /// @dev Supported string case conventions for {formatCase}.
+    enum CaseType {
+        Camel,
+        Pascal,
+        Constant,
+        Snake,
+        Kebab
+    }
 
     /*///////////////////////////////////////////////////////////////////////////////////////////////////////
                                             CONVERSION
@@ -19,6 +35,8 @@ library StringUtils {
             // Cache the end of the fixed output region.
             result := add(mload(0x40), 0x80)
             let ptr := result
+
+            // Step backward by one byte.
             let stride := not(0x00) // -1 modulo 2²⁵⁶
 
             // Zeroize the trailing memory word.
@@ -27,8 +45,8 @@ library StringUtils {
             // Advance the free-memory pointer.
             mstore(0x40, add(ptr, 0x20))
 
-            // Encode each significant decimal digit backward.
-            // The first iteration always emits one digit, representing zero as `0`.
+            // Encode each significant decimal digit from right to left.
+            // Emit at least one digit, ensuring zero is represented as `0`.
             for { let remaining := value } 0x01 {} {
                 ptr := add(ptr, stride)
                 mstore8(ptr, add(0x30, mod(remaining, 0x0a)))
@@ -56,8 +74,10 @@ library StringUtils {
             // Cache the end of the fixed output region.
             result := add(mload(0x40), 0x80)
             let ptr := result
-            let stride := not(0x00) // -1 modulo 2²⁵⁶
             let remaining := value
+
+            // Step backward by one byte.
+            let stride := not(0x00) // -1 modulo 2²⁵⁶
 
             // Zeroize the trailing memory word.
             mstore(ptr, 0x00)
@@ -68,8 +88,8 @@ library StringUtils {
             // Convert negative values to their unsigned magnitude.
             if slt(value, 0x00) { remaining := add(not(value), 0x01) }
 
-            // Encode each significant decimal digit backward.
-            // The first iteration always emits one digit, representing zero as `0`.
+            // Encode each significant decimal digit from right to left.
+            // Emit at least one digit, ensuring zero is represented as `0`.
             for {} 0x01 {} {
                 ptr := add(ptr, stride)
                 mstore8(ptr, add(0x30, mod(remaining, 0x0a)))
@@ -78,7 +98,7 @@ library StringUtils {
                 if iszero(remaining) { break }
             }
 
-            // Prefix a minus sign for negative values.
+            // Prepend a minus sign for negative values.
             if slt(value, 0x00) {
                 ptr := add(ptr, stride)
                 mstore8(ptr, 0x2d) // `-`
@@ -112,8 +132,10 @@ library StringUtils {
             result := add(mload(0x40), and(add(shl(0x01, byteLength), 0x42), not(0x1f)))
             let ptr := result
             let guard := sub(ptr, shl(0x01, byteLength))
-            let stride := not(0x01) // -2 modulo 2²⁵⁶
             let remaining := value
+
+            // Step backward by two bytes.
+            let stride := not(0x01) // -2 modulo 2²⁵⁶
 
             // Zeroize the trailing memory word.
             mstore(ptr, 0x00)
@@ -124,8 +146,7 @@ library StringUtils {
             // Store the hexadecimal lookup table (`0123456789abcdef`) in scratch space.
             mstore(0x0f, 0x30313233343536373839616263646566)
 
-            // Encode exactly `byteLength` bytes backward as lowercase hexadecimal digits.
-            // The first iteration always emits one byte, representing zero as `00`.
+            // Encode exactly `byteLength` bytes from right to left as two lowercase hexadecimal digits each.
             for {} xor(ptr, guard) {} {
                 ptr := add(ptr, stride)
                 mstore8(add(ptr, 0x01), mload(and(remaining, 0x0f)))
@@ -175,6 +196,8 @@ library StringUtils {
             // Cache the end of the fixed output region.
             result := add(mload(0x40), 0x80)
             let ptr := result
+
+            // Step backward by two bytes.
             let stride := not(0x01) // -2 modulo 2²⁵⁶
 
             // Zeroize the trailing memory word.
@@ -186,8 +209,8 @@ library StringUtils {
             // Store the hexadecimal lookup table (`0123456789abcdef`) in scratch space.
             mstore(0x0f, 0x30313233343536373839616263646566)
 
-            // Encode each significant byte backward as two hexadecimal digits.
-            // The first iteration always emits one byte, representing zero as `00`.
+            // Encode each significant byte from right to left as two lowercase hexadecimal digits.
+            // Emit at least one byte, ensuring zero is represented as `00`.
             for { let remaining := value } 0x01 {} {
                 ptr := add(ptr, stride)
                 mstore8(add(ptr, 0x01), mload(and(remaining, 0x0f)))
@@ -223,7 +246,7 @@ library StringUtils {
     }
 
     /// @notice Converts an address to its ASCII hexadecimal string representation.
-    /// @dev Encodes exactly 40 hexadecimal digits representing 20-bytes, and optionally
+    /// @dev Encodes exactly 40 hexadecimal digits representing 20 bytes, and optionally
     ///      applies the https://eips.ethereum.org/EIPS/eip-55[EIP-55] checksum casing.
     /// @param value The address to convert.
     /// @param prefixed Whether to prepend the `0x` prefix.
@@ -234,6 +257,8 @@ library StringUtils {
             // Cache the end of the fixed output region.
             let ptr := add(mload(0x40), 0x60)
             let guard := sub(ptr, 0x28)
+
+            // Step backward by two bytes.
             let stride := not(0x01) // -2 modulo 2²⁵⁶
 
             // Zeroize the trailing memory word.
@@ -245,17 +270,19 @@ library StringUtils {
             // Store the hexadecimal lookup table (`0123456789abcdef`) in scratch space.
             mstore(0x0f, 0x30313233343536373839616263646566)
 
-            // Encode each address byte backward as two hexadecimal digits.
+            // Encode all 20 address bytes from right to left as two lowercase hexadecimal digits each.
             for { let remaining := value } xor(ptr, guard) { remaining := shr(0x08, remaining) } {
                 ptr := add(ptr, stride)
                 mstore8(add(ptr, 0x01), mload(and(remaining, 0x0f)))
                 mstore8(ptr, mload(and(shr(0x04, remaining), 0x0f)))
             }
 
+            // Apply EIP-55 checksum casing using the hash of the lowercase hexadecimal digits, if requested.
             if checksummed {
-                // Apply EIP-55 casing using the hash of the lowercase hexadecimal digits.
-                let hash := keccak256(ptr, 0x28)
+                // ASCII case offset used to convert lowercase letters to uppercase.
                 let caseDelta := not(0x1f) // -32 modulo 2²⁵⁶
+
+                let hash := keccak256(ptr, 0x28)
 
                 for { let i := 0x00 } lt(i, 0x28) { i := add(i, 0x01) } {
                     let char := byte(0x00, mload(add(ptr, i)))
@@ -272,7 +299,7 @@ library StringUtils {
             // Derive the optional prefix length.
             let prefixLength := shl(0x01, iszero(iszero(prefixed)))
 
-            // Position the string header before the optional prefix and digits.
+            // Position the string header before the optional prefix and 40 hexadecimal digits.
             result := sub(ptr, add(prefixLength, 0x20))
 
             // Store the optional `0x` prefix, if requested.
@@ -309,11 +336,9 @@ library StringUtils {
             result := mload(0x40)
             let ptr := add(result, 0x20)
 
-            // Load the buffer length.
-            let bufferLength := mload(buffer)
-
             // Derive the buffer byte range.
             let cursor := add(buffer, 0x20)
+            let bufferLength := mload(buffer)
             let end := add(cursor, bufferLength)
 
             // Derive the optional prefix length.
@@ -329,7 +354,7 @@ library StringUtils {
                 ptr := add(ptr, prefixLength)
             }
 
-            // Encode each input byte as two hexadecimal digits.
+            // Encode each input byte from left to right as two lowercase hexadecimal digits.
             for {} lt(cursor, end) {} {
                 let char := byte(0x00, mload(cursor))
                 mstore8(ptr, mload(shr(0x04, char)))
@@ -364,9 +389,317 @@ library StringUtils {
                                             FORMATTING
     ///////////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    function toLowerCase(string memory subject) internal pure returns (string memory result) {}
+    /// @notice Formats a string according to the specified case convention.
+    /// @dev Supports camelCase, PascalCase, CONSTANT_CASE, snake_case, and kebab-case.
+    ///      Accepts printable ASCII characters. Spaces, hyphens, and underscores are normalized
+    ///      as separators, while other punctuation is preserved as a word boundary.
+    ///      Detects word boundaries across separators, punctuation, case transitions, acronym
+    ///      boundaries, and numeric fragments. Reverts with {InvalidFormatChar} for unsupported
+    ///      bytes and {InvalidCaseType} for an invalid case convention.
+    /// @param subject The string to format.
+    /// @param caseType The target case convention.
+    /// @return result The case-formatted string.
+    function formatCase(string memory subject, CaseType caseType) internal pure returns (string memory result) {
+        assembly ("memory-safe") {
+            // Return whether the byte is an ASCII letter or decimal digit.
+            function isAlphanumeric(char) -> flag {
+                flag := or(isNumeric(char), or(isUpperCase(char), isLowerCase(char)))
+            }
 
-    function toUpperCase(string memory subject) internal pure returns (string memory result) {}
+            // Return whether the byte is an ASCII decimal digit (`0` through `9`).
+            function isNumeric(char) -> flag {
+                flag := lt(sub(char, 0x30), 0x0a)
+            }
+
+            // Return whether the byte is an uppercase ASCII letter (`A` through `Z`).
+            function isUpperCase(char) -> flag {
+                flag := lt(sub(char, 0x41), 0x1a)
+            }
+
+            // Return whether the byte is a lowercase ASCII letter (`a` through `z`).
+            function isLowerCase(char) -> flag {
+                flag := lt(sub(char, 0x61), 0x1a)
+            }
+
+            // Return whether the byte is a printable ASCII character (` ` through `~`).
+            function isPrintable(char) -> flag {
+                flag := lt(sub(char, 0x20), 0x5f)
+            }
+
+            // Return whether the byte is a recognized word separator:
+            // space (` `), hyphen (`-`), or underscore (`_`).
+            function isSeparator(char) -> flag {
+                flag := or(eq(char, 0x20), or(eq(char, 0x2d), eq(char, 0x5f)))
+            }
+
+            // Read and validate one input byte.
+            function read(ptr) -> char {
+                char := byte(0x00, mload(ptr))
+                if iszero(isPrintable(char)) {
+                    mstore(0x00, 0xd6e4b4c1) // InvalidFormatChar()
+                    revert(0x1c, 0x04)
+                }
+            }
+
+            // Reject values outside the `CaseType` enum.
+            if gt(caseType, 0x04) {
+                mstore(0x00, 0x0b232f0e) // InvalidCaseType()
+                revert(0x1c, 0x04)
+            }
+
+            // Step backward by one byte.
+            let stride := not(0x00) // -1 modulo 2²⁵⁶
+
+            // ASCII case offset used to convert lowercase letters to uppercase.
+            let caseDelta := not(0x1f) // -32 modulo 2²⁵⁶
+
+            // Load the subject byte range.
+            let subjectLength := mload(subject)
+            let src := add(subject, 0x20)
+
+            // Remove trailing recognized separators while validating each inspected byte.
+            for {} subjectLength {} {
+                if iszero(isSeparator(read(add(src, add(subjectLength, stride))))) { break }
+                subjectLength := add(subjectLength, stride)
+            }
+
+            // Construct the output directly at the current free-memory pointer.
+            result := mload(0x40)
+            let dst := add(result, 0x20)
+
+            // Track the number of emitted output bytes.
+            let length := 0x00
+
+            if subjectLength {
+                // Classify the target case convention.
+                // 0: Camel, 1: Pascal, 2: Constant, 3: Snake, 4: Kebab.
+                let isCamel := iszero(caseType)
+                let isPascal := eq(caseType, 0x01)
+                let isConstant := eq(caseType, 0x02)
+                let isSnake := eq(caseType, 0x03)
+                let isKebab := eq(caseType, 0x04)
+
+                // Constant/Snake/Kebab cases use a normalized separator.
+                let usesSeparator := or(or(isConstant, isSnake), isKebab)
+
+                // Select the normalized separator for separated case formats.
+                let separator := 0x00
+                if or(isConstant, isSnake) {
+                    separator := 0x5f // `_`
+                }
+                if isKebab {
+                    separator := 0x2d // `-`
+                }
+
+                // Initialize Pascal case to capitalize the first alphabetic byte.
+                let capitalizeNext := isPascal
+
+                // Scan the input from left to right.
+                for { let i := 0x00 } lt(i, subjectLength) { i := add(i, 0x01) } {
+                    // Read the current source byte.
+                    let char := read(add(src, i))
+
+                    // Read the next source byte when available.
+                    let next := 0x00
+                    if lt(add(i, 0x01), subjectLength) { next := read(add(src, add(i, 0x01))) }
+
+                    // Read the previously emitted output byte when available.
+                    let prev := 0x00
+                    if length { prev := byte(0x00, mload(add(dst, add(length, stride)))) }
+
+                    // Handle recognized separators and preserved punctuation.
+                    if iszero(isAlphanumeric(char)) {
+                        switch usesSeparator
+                        case 0x01 {
+                            switch isSeparator(char)
+                            case 0x01 {
+                                if length {
+                                    // Find the next non-separator source byte.
+                                    for { let o := add(i, 0x01) } lt(o, subjectLength) { o := add(o, 0x01) } {
+                                        next := read(add(src, o))
+                                        if iszero(isSeparator(next)) { break }
+                                    }
+
+                                    // Emit a normalized separator only after alphanumeric content
+                                    // and suppress separator runs preceding numeric fragments.
+                                    if and(isAlphanumeric(prev), iszero(isNumeric(next))) {
+                                        mstore8(add(dst, length), separator)
+                                        length := add(length, 0x01)
+                                    }
+                                }
+                            }
+                            default {
+                                // Preserve printable punctuation as a word boundary.
+                                if eq(prev, separator) { length := add(length, stride) }
+
+                                mstore8(add(dst, length), char)
+                                length := add(length, 0x01)
+                            }
+                        }
+                        default {
+                            // Preserve printable punctuation and remove recognized separators.
+                            if iszero(isSeparator(char)) {
+                                mstore8(add(dst, length), char)
+                                length := add(length, 0x01)
+                            }
+
+                            // Punctuation always establishes a word boundary; recognized
+                            // separators do so only after emitted content.
+                            if or(iszero(isSeparator(char)), iszero(iszero(length))) {
+                                capitalizeNext := 0x01
+                            }
+                        }
+
+                        continue
+                    }
+
+                    // Read the previous source byte when available.
+                    let prevSource := 0x00
+                    if i { prevSource := read(add(src, add(i, stride))) }
+
+                    switch usesSeparator
+                    case 0x01 {
+                        // Detect implicit boundaries only between adjacent source alphanumerics.
+                        if isAlphanumeric(prevSource) {
+                            // An alphabetic fragment following a numeric fragment begins a new word.
+                            let insertBoundary := and(isNumeric(prevSource), iszero(isNumeric(char)))
+
+                            if isUpperCase(char) {
+                                // A lowercase-to-uppercase transition begins a new word.
+                                if isLowerCase(prevSource) {
+                                    insertBoundary := 0x01
+                                }
+
+                                // Insert a boundary before an acronym-ending uppercase byte
+                                // followed by lowercase text.
+                                if and(isUpperCase(prevSource), isLowerCase(next)) {
+                                    insertBoundary := 0x01
+                                }
+                            }
+
+                            if and(insertBoundary, iszero(eq(prev, separator))) {
+                                mstore8(add(dst, length), separator)
+                                length := add(length, 0x01)
+                            }
+                        }
+
+                        // Constant case converts lowercase ASCII letters to uppercase.
+                        if and(isConstant, isLowerCase(char)) {
+                            char := add(char, caseDelta)
+                        }
+
+                        // Snake and Kebab cases convert uppercase ASCII letters to lowercase.
+                        if and(iszero(isConstant), isUpperCase(char)) {
+                            char := add(char, 0x20)
+                        }
+                    }
+                    default {
+                        switch or(isNumeric(prev), capitalizeNext)
+                        case 0x01 {
+                            // Capitalize the first alphabetic byte following a separator,
+                            // punctuation boundary, or numeric fragment.
+                            if isLowerCase(char) { char := add(char, caseDelta) }
+
+                            // Digits do not consume pending capitalization.
+                            if iszero(isNumeric(char)) { capitalizeNext := 0x00 }
+                        }
+                        default {
+                            // Normalize uppercase bytes within Camel and Pascal case.
+                            if isUpperCase(char) {
+                                // Lowercase the initial Camel byte and interior acronym bytes.
+                                if or(
+                                    and(isCamel, iszero(length)),
+                                    and(isUpperCase(prevSource), iszero(isLowerCase(next)))
+                                ) {
+                                    char := add(char, 0x20)
+                                }
+                            }
+                        }
+                    }
+
+                    // Emit the normalized alphanumeric byte.
+                    mstore8(add(dst, length), char)
+                    length := add(length, 0x01)
+                }
+            }
+
+            // Store the output length.
+            mstore(result, length)
+
+            // Derive the logical output end.
+            let ptr := add(dst, length)
+
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
+
+            // Advance the free-memory pointer.
+            mstore(0x40, and(add(ptr, 0x3f), not(0x1f)))
+        }
+    }
+
+    /// @notice Converts all ASCII letters in a string to lowercase.
+    /// @dev Only characters in the ASCII range `A` through `Z` are converted.
+    ///      All other bytes, including non-ASCII bytes, are left unchanged.
+    /// @param subject The string to convert.
+    /// @return result The lowercased string.
+    function toLowerCase(string memory subject) internal pure returns (string memory result) {
+        assembly ("memory-safe") {
+            // Construct the output directly at the current free-memory pointer.
+            result := mload(0x40)
+
+            // Derive the output byte range and displacement to the corresponding input bytes.
+            let ptr := add(result, 0x20)
+            let displacement := sub(add(subject, 0x20), ptr)
+            let length := mload(subject)
+
+            // Convert each uppercase ASCII character by setting bit 5.
+            for { let end := add(ptr, length) } lt(ptr, end) { ptr := add(ptr, 0x01) } {
+                let char := byte(0x00, mload(add(ptr, displacement)))
+                mstore8(ptr, add(char, shl(0x05, lt(sub(char, 0x41), 0x1a))))
+            }
+
+            // Store the output length.
+            mstore(result, length)
+
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
+
+            // Advance the free-memory pointer.
+            mstore(0x40, and(add(ptr, 0x3f), not(0x1f)))
+        }
+    }
+
+    /// @notice Converts all ASCII letters in a string to uppercase.
+    /// @dev Only characters in the ASCII range `a` through `z` are converted.
+    ///      All other bytes, including non-ASCII bytes, are left unchanged.
+    /// @param subject The string to convert.
+    /// @return result The uppercased string.
+    function toUpperCase(string memory subject) internal pure returns (string memory result) {
+        assembly ("memory-safe") {
+            // Construct the output directly at the current free-memory pointer.
+            result := mload(0x40)
+
+            // Derive the output byte range and displacement to the corresponding input bytes.
+            let ptr := add(result, 0x20)
+            let displacement := sub(add(subject, 0x20), ptr)
+            let length := mload(subject)
+
+            // Convert each lowercase ASCII character by clearing bit 5.
+            for { let end := add(ptr, length) } lt(ptr, end) { ptr := add(ptr, 0x01) } {
+                let char := byte(0x00, mload(add(ptr, displacement)))
+                mstore8(ptr, sub(char, shl(0x05, lt(sub(char, 0x61), 0x1a))))
+            }
+
+            // Store the output length.
+            mstore(result, length)
+
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
+
+            // Advance the free-memory pointer.
+            mstore(0x40, and(add(ptr, 0x3f), not(0x1f)))
+        }
+    }
 
     /*///////////////////////////////////////////////////////////////////////////////////////////////////////
                                             CONSTRUCTION
@@ -518,7 +851,7 @@ library StringUtils {
                 // Derive the shift used to compare the significant leading bytes.
                 let maskShift := mul(shl(0x03, sub(0x20, delimiterLength)), lt(delimiterLength, 0x20))
 
-                // Delimiters of at least 32-bytes additionally require a full-length hash comparison.
+                // Delimiters of at least 32 bytes additionally require a full-length hash comparison.
                 let requiresHash := iszero(lt(delimiterLength, 0x20))
                 let delimiterWord := mload(delimiter)
                 let delimiterHash := 0x00
@@ -583,7 +916,7 @@ library StringUtils {
                     mstore(ptr, length)
                     mcopy(add(ptr, 0x20), previous, length)
 
-                    // Advance by the string header and data.
+                    // Advance past the string header and byte data.
                     ptr := add(add(ptr, 0x20), length)
 
                     // Zeroize the trailing memory word.
@@ -632,7 +965,7 @@ library StringUtils {
             let needleLength := mload(needle)
             let replacementLength := mload(replacement)
 
-            // Derive the subject byte range.
+            // Derive the subject byte range `[cursor, end)`.
             let cursor := add(subject, 0x20)
             let end := add(cursor, subjectLength)
 
@@ -648,7 +981,7 @@ library StringUtils {
                 // Derive the shift used to compare the significant leading bytes.
                 let maskShift := mul(shl(0x03, sub(0x20, needleLength)), lt(needleLength, 0x20))
 
-                // Needles of at least 32-bytes additionally require a full-length hash comparison.
+                // Needles of at least 32 bytes additionally require a full-length hash comparison.
                 let requiresHash := iszero(lt(needleLength, 0x20))
                 let needleWord := mload(needle)
                 let needleHash := 0x00
@@ -717,6 +1050,7 @@ library StringUtils {
             subject := add(subject, 0x20)
 
             if iszero(or(iszero(count), iszero(subjectLength))) {
+                // Step backward by one byte.
                 let stride := not(0x00) // -1 modulo 2²⁵⁶
 
                 // Copy the subject once per iteration.
@@ -741,10 +1075,10 @@ library StringUtils {
     ///         padding string, truncating the final repetition as needed.
     /// @dev Returns an unchanged copy if no padding is required or the padding string is empty.
     /// @param subject The string to pad.
-    /// @param needle The string cyclically repeated as padding.
+    /// @param fill The string cyclically repeated as padding.
     /// @param length The minimum byte length of the resulting string.
     /// @return result The left-padded string.
-    function padStart(string memory subject, string memory needle, uint256 length)
+    function padStart(string memory subject, string memory fill, uint256 length)
         internal
         pure
         returns (string memory result)
@@ -756,23 +1090,23 @@ library StringUtils {
 
             // Load the input byte lengths.
             let subjectLength := mload(subject)
-            let needleLength := mload(needle)
+            let fillLength := mload(fill)
 
             // Preserve the original byte length if no padding is required or the padding string is empty.
-            if or(lt(length, subjectLength), iszero(needleLength)) { length := subjectLength }
+            if or(lt(length, subjectLength), iszero(fillLength)) { length := subjectLength }
 
             // The subject begins immediately after the padding region.
             let cursor := ptr
             let end := add(ptr, sub(length, subjectLength))
             mcopy(end, add(subject, 0x20), subjectLength)
 
-            // Fill the padding region with cyclic repetitions of the needle.
-            for { needle := add(needle, 0x20) } lt(cursor, end) {} {
-                let size := needleLength
+            // Fill the padding region with cyclic repetitions of the fill string.
+            for { fill := add(fill, 0x20) } lt(cursor, end) {} {
+                let size := fillLength
                 let remaining := sub(end, cursor)
                 if gt(size, remaining) { size := remaining }
 
-                mcopy(cursor, needle, size)
+                mcopy(cursor, fill, size)
                 cursor := add(cursor, size)
             }
 
@@ -794,10 +1128,10 @@ library StringUtils {
     ///         padding string, truncating the final repetition as needed.
     /// @dev Returns an unchanged copy if no padding is required or the padding string is empty.
     /// @param subject The string to pad.
-    /// @param needle The string cyclically repeated as padding.
+    /// @param fill The string cyclically repeated as padding.
     /// @param length The minimum byte length of the resulting string.
     /// @return result The right-padded string.
-    function padEnd(string memory subject, string memory needle, uint256 length)
+    function padEnd(string memory subject, string memory fill, uint256 length)
         internal
         pure
         returns (string memory result)
@@ -809,23 +1143,23 @@ library StringUtils {
 
             // Load the input byte lengths.
             let subjectLength := mload(subject)
-            let needleLength := mload(needle)
+            let fillLength := mload(fill)
 
             // Preserve the original byte length if no padding is required or the padding string is empty.
-            if or(iszero(gt(length, subjectLength)), iszero(needleLength)) { length := subjectLength }
+            if or(iszero(gt(length, subjectLength)), iszero(fillLength)) { length := subjectLength }
 
             // The padding region begins immediately after the copied subject.
             let cursor := add(ptr, subjectLength)
             let end := add(ptr, length)
             mcopy(ptr, add(subject, 0x20), subjectLength)
 
-            // Fill the padding region with cyclic repetitions of the needle.
-            for { needle := add(needle, 0x20) } lt(cursor, end) {} {
-                let size := needleLength
+            // Fill the padding region with cyclic repetitions of the fill string.
+            for { fill := add(fill, 0x20) } lt(cursor, end) {} {
+                let size := fillLength
                 let remaining := sub(end, cursor)
                 if gt(size, remaining) { size := remaining }
 
-                mcopy(cursor, needle, size)
+                mcopy(cursor, fill, size)
                 cursor := add(cursor, size)
             }
 
@@ -903,121 +1237,77 @@ library StringUtils {
         }
     }
 
-    /// @notice Removes leading and trailing ASCII whitespace from a string.
+    /// @notice Trims ASCII whitespace from the selected ends of a string.
     /// @dev Returns an unchanged copy if no trimming is required.
-    ///      Recognized ASCII whitespace consists of horizontal tab (`0x09`), line feed (`0x0a`),
-    ///      vertical tab (`0x0b`), form feed (`0x0c`), carriage return (`0x0d`), and space (`0x20`).
+    ///      Recognized whitespace consists of horizontal tab (`\t`), line feed (`\n`),
+    ///      vertical tab (`\v`), form feed (`\f`), carriage return (`\r`), and space (` `).
     ///      All other bytes, including non-ASCII whitespace, are preserved unchanged.
     /// @param subject The string to trim.
+    /// @param leading Whether to trim leading whitespace.
+    /// @param trailing Whether to trim trailing whitespace.
     /// @return result The trimmed string.
+    function trim(string memory subject, bool leading, bool trailing) internal pure returns (string memory result) {
+        assembly ("memory-safe") {
+            // Return whether the byte is recognized whitespace (`0x09`–`0x0d` or `0x20`).
+            function isWhitespace(ptr) -> flag {
+                let char := byte(0x00, mload(ptr))
+                flag := or(lt(sub(char, 0x09), 0x05), eq(char, 0x20))
+            }
+
+            // Construct the output directly at the current free-memory pointer.
+            result := mload(0x40)
+            let ptr := add(result, 0x20)
+
+            // Derive the subject byte range `[cursor, end)`.
+            let cursor := add(subject, 0x20)
+            let end := add(cursor, mload(subject))
+
+            // Advance to the first retained byte, if requested.
+            if leading {
+                for {} lt(cursor, end) { cursor := add(cursor, 0x01) } {
+                    if iszero(isWhitespace(cursor)) { break }
+                }
+            }
+
+            // Move `end` backward past trailing whitespace, if requested.
+            if trailing {
+                // Step backward by one byte.
+                let stride := not(0x00) // -1 modulo 2²⁵⁶
+
+                for {} lt(cursor, end) { end := add(end, stride) } {
+                    if iszero(isWhitespace(add(end, stride))) { break }
+                }
+            }
+
+            // Store the output length and copy the retained byte range.
+            let length := sub(end, cursor)
+            mstore(result, length)
+            mcopy(ptr, cursor, length)
+
+            // Derive the logical output end.
+            ptr := add(ptr, length)
+
+            // Zeroize the trailing memory word.
+            mstore(ptr, 0x00)
+
+            // Advance the free-memory pointer.
+            mstore(0x40, and(add(ptr, 0x3f), not(0x1f)))
+        }
+    }
+
+    /// @dev Variant of {trim-string-bool-bool} with both `leading` and `trailing` set to `true`.
     function trim(string memory subject) internal pure returns (string memory result) {
-        assembly ("memory-safe") {
-            // Construct the output directly at the current free-memory pointer.
-            result := mload(0x40)
-            let ptr := add(result, 0x20)
-
-            // Derive the subject byte range.
-            let cursor := add(subject, 0x20)
-            let end := add(cursor, mload(subject))
-            let stride := not(0x00) // -1 modulo 2²⁵⁶
-
-            // Advance to the first retained byte.
-            for {} lt(cursor, end) { cursor := add(cursor, 0x01) } {
-                if iszero(and(0x100003e00, shl(byte(0x00, mload(cursor)), 0x01))) { break }
-            }
-
-            // Move backward to the exclusive end of the retained byte range.
-            for {} lt(cursor, end) { end := add(end, stride) } {
-                if iszero(and(0x100003e00, shl(byte(0x00, mload(add(end, stride))), 0x01))) { break }
-            }
-
-            // Store the output length and copy the retained byte range.
-            let length := sub(end, cursor)
-            mstore(result, length)
-            mcopy(ptr, cursor, length)
-
-            // Derive the logical output end.
-            ptr := add(ptr, length)
-
-            // Zeroize the trailing memory word.
-            mstore(ptr, 0x00)
-
-            // Advance the free-memory pointer.
-            mstore(0x40, and(add(ptr, 0x3f), not(0x1f)))
-        }
+        return trim(subject, true, true);
     }
 
-    /// @notice Removes leading ASCII whitespace from a string.
-    /// @dev Returns an unchanged copy if no trimming is required.
-    ///      Recognizes the same ASCII whitespace bytes as {trim-string}.
-    /// @param subject The string to trim.
-    /// @return result The trimmed string.
+    /// @dev Variant of {trim-string-bool-bool} with `leading` set to `true` and `trailing` set to `false`.
     function trimStart(string memory subject) internal pure returns (string memory result) {
-        assembly ("memory-safe") {
-            // Construct the output directly at the current free-memory pointer.
-            result := mload(0x40)
-            let ptr := add(result, 0x20)
-
-            // Derive the subject byte range.
-            let cursor := add(subject, 0x20)
-            let end := add(cursor, mload(subject))
-
-            // Advance to the first retained byte.
-            for {} lt(cursor, end) { cursor := add(cursor, 0x01) } {
-                if iszero(and(0x100003e00, shl(byte(0x00, mload(cursor)), 0x01))) { break }
-            }
-
-            // Store the output length and copy the retained byte range.
-            let length := sub(end, cursor)
-            mstore(result, length)
-            mcopy(ptr, cursor, length)
-
-            // Derive the logical output end.
-            ptr := add(ptr, length)
-
-            // Zeroize the trailing memory word.
-            mstore(ptr, 0x00)
-
-            // Advance the free-memory pointer.
-            mstore(0x40, and(add(ptr, 0x3f), not(0x1f)))
-        }
+        return trim(subject, true, false);
     }
 
-    /// @notice Removes trailing ASCII whitespace from a string.
-    /// @dev Returns an unchanged copy if no trimming is required.
-    ///      Recognizes the same ASCII whitespace bytes as {trim-string}.
-    /// @param subject The string to trim.
-    /// @return result The trimmed string.
+    /// @dev Variant of {trim-string-bool-bool} with `leading` set to `false` and `trailing` set to `true`.
     function trimEnd(string memory subject) internal pure returns (string memory result) {
-        assembly ("memory-safe") {
-            // Construct the output directly at the current free-memory pointer.
-            result := mload(0x40)
-            let ptr := add(result, 0x20)
-
-            // Derive the subject byte range.
-            let cursor := add(subject, 0x20)
-            let end := add(cursor, mload(subject))
-            let stride := not(0x00) // -1 modulo 2²⁵⁶
-
-            // Move backward to the exclusive end of the retained byte range.
-            for {} lt(cursor, end) { end := add(end, stride) } {
-                if iszero(and(0x100003e00, shl(byte(0x00, mload(add(end, stride))), 0x01))) { break }
-            }
-
-            // Store the output length and copy the retained byte range.
-            let length := sub(end, cursor)
-            mstore(result, length)
-            mcopy(ptr, cursor, length)
-
-            // Derive the logical output end.
-            ptr := add(ptr, length)
-
-            // Zeroize the trailing memory word.
-            mstore(ptr, 0x00)
-
-            // Advance the free-memory pointer.
-            mstore(0x40, and(add(ptr, 0x3f), not(0x1f)))
-        }
+        return trim(subject, false, true);
     }
 
     /*///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1065,7 +1355,7 @@ library StringUtils {
                     // Derive the shift used to compare the significant leading bytes.
                     let maskShift := mul(shl(0x03, sub(0x20, needleLength)), lt(needleLength, 0x20))
 
-                    // Needles of at least 32-bytes additionally require a full-length hash comparison.
+                    // Needles of at least 32 bytes additionally require a full-length hash comparison.
                     let requiresHash := iszero(lt(needleLength, 0x20))
                     let needleWord := mload(needle)
                     let needleHash := 0x00
@@ -1124,6 +1414,7 @@ library StringUtils {
                 subject := add(subject, 0x20)
                 needle := add(needle, 0x20)
 
+                // Step backward by one byte.
                 let stride := not(0x00) // -1 modulo 2²⁵⁶
 
                 // Derive the exclusive search boundary.
@@ -1132,7 +1423,7 @@ library StringUtils {
                 // Derive the shift used to compare the significant leading bytes.
                 let maskShift := mul(shl(0x03, sub(0x20, needleLength)), lt(needleLength, 0x20))
 
-                // Needles of at least 32-bytes additionally require a full-length hash comparison.
+                // Needles of at least 32 bytes additionally require a full-length hash comparison.
                 let requiresHash := iszero(lt(needleLength, 0x20))
                 let needleWord := mload(needle)
                 let needleHash := 0x00
@@ -1197,7 +1488,7 @@ library StringUtils {
                     // Derive the shift used to compare the significant leading bytes.
                     let maskShift := mul(shl(0x03, sub(0x20, needleLength)), lt(needleLength, 0x20))
 
-                    // Needles of at least 32-bytes additionally require a full-length hash comparison.
+                    // Needles of at least 32 bytes additionally require a full-length hash comparison.
                     let requiresHash := iszero(lt(needleLength, 0x20))
                     let needleWord := mload(needle)
                     let needleHash := 0x00
