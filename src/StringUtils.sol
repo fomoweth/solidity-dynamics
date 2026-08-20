@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 /// @title StringUtils
 /// @author fomoweth
-/// @notice Utilities for converting, formatting, comparing, inspecting, searching, constructing, and slicing strings.
+/// @notice Utilities for converting, formatting, constructing, slicing, searching, and comparing strings.
 library StringUtils {
     /// @dev Thrown when a value cannot be represented within the requested hexadecimal byte length.
     error InsufficientHexStringLength();
@@ -1237,7 +1237,7 @@ library StringUtils {
         }
     }
 
-    /// @notice Trims ASCII whitespace from the selected ends of a string.
+    /// @notice Removes ASCII whitespace from the selected ends of a string.
     /// @dev Returns an unchanged copy if no trimming is required.
     ///      Recognized whitespace consists of horizontal tab (`\t`), line feed (`\n`),
     ///      vertical tab (`\v`), form feed (`\f`), carriage return (`\r`), and space (` `).
