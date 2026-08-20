@@ -4,6 +4,9 @@ pragma solidity ^0.8.25;
 /// @title StringUtils
 /// @author fomoweth
 /// @notice Utilities for converting, formatting, constructing, slicing, searching, and comparing strings.
+/// @dev Operations are byte-oriented and do not interpret Unicode code points. Offsets, lengths, and indices
+///      refer to byte positions and may split multi-byte UTF-8 encodings. Case conversion is limited to ASCII
+///      characters. Requires the Cancun EVM or later due to the use of `MCOPY`.
 library StringUtils {
     /// @dev Thrown when a value cannot be represented within the requested hexadecimal byte length.
     error InsufficientHexStringLength();

@@ -3,7 +3,9 @@ pragma solidity ^0.8.25;
 
 /// @title BytesUtils
 /// @author fomoweth
-/// @notice Utilities for constructing, slicing, searching, and comparing byte arrays.
+/// @notice Utilities for constructing, slicing, searching, and comparing dynamic byte arrays.
+/// @dev Operations treat dynamic byte arrays as raw byte sequences. Requires the Cancun EVM
+///      or later due to the use of `MCOPY`.
 library BytesUtils {
     /*///////////////////////////////////////////////////////////////////////////////////////////////////////
                                             CONSTRUCTION
