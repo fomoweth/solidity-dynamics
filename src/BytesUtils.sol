@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 /// @title BytesUtils
 /// @author fomoweth
+/// @notice Utilities for constructing, slicing, searching, and comparing byte arrays.
 library BytesUtils {
     /*///////////////////////////////////////////////////////////////////////////////////////////////////////
                                             CONSTRUCTION
@@ -219,7 +220,7 @@ library BytesUtils {
                     mstore(ptr, length)
                     mcopy(add(ptr, 0x20), previous, length)
 
-                    // Advance by the byte array and data.
+                    // Advance past the byte-array header and byte data.
                     ptr := add(add(ptr, 0x20), length)
 
                     // Zeroize the trailing memory word.
@@ -268,7 +269,7 @@ library BytesUtils {
             let needleLength := mload(needle)
             let replacementLength := mload(replacement)
 
-            // Derive the subject byte range.
+            // Derive the subject byte range `[cursor, end)`.
             let cursor := add(subject, 0x20)
             let end := add(cursor, subjectLength)
 
@@ -353,6 +354,7 @@ library BytesUtils {
             subject := add(subject, 0x20)
 
             if iszero(or(iszero(count), iszero(subjectLength))) {
+                // Step backward by one byte.
                 let stride := not(0x00) // -1 modulo 2²⁵⁶
 
                 // Copy the subject once per iteration.
@@ -536,6 +538,7 @@ library BytesUtils {
                 subject := add(subject, 0x20)
                 needle := add(needle, 0x20)
 
+                // Step backward by one byte.
                 let stride := not(0x00) // -1 modulo 2²⁵⁶
 
                 // Derive the exclusive search boundary.
@@ -643,10 +646,6 @@ library BytesUtils {
             mstore(0x40, ptr)
         }
     }
-
-    /*///////////////////////////////////////////////////////////////////////////////////////////////////////
-                                            INSPECTION
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Determines whether a byte array contains a byte sequence at or after a specified byte offset.
     /// @dev An empty byte sequence matches if the starting offset is less than or equal to the byte array's length.

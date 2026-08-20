@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
-import {StringUtils} from "src/StringUtils.sol";
 
 abstract contract BaseTest is Test {
     uint256 internal constant NOT_FOUND = type(uint256).max;
@@ -43,19 +42,49 @@ abstract contract BaseTest is Test {
         return matchesAt(bytes(subject), bytes(needle), offset);
     }
 
-    function capitalize(string memory subject) internal pure returns (string memory) {
-        return string.concat(vm.toUppercase(StringUtils.slice(subject, 0, 1)), StringUtils.slice(subject, 1));
+    function isAlphanumeric(bytes1 char) internal pure virtual returns (bool) {
+        return isNumeric(char) || isUpperCase(char) || isLowerCase(char);
+    }
+
+    function isNumeric(bytes1 char) internal pure virtual returns (bool) {
+        return char >= 0x30 && char <= 0x39; // (`0` - `9`)
+    }
+
+    function isUpperCase(bytes1 char) internal pure virtual returns (bool) {
+        return char >= 0x41 && char <= 0x5a; // (`A` - `Z`)
+    }
+
+    function isLowerCase(bytes1 char) internal pure virtual returns (bool) {
+        return char >= 0x61 && char <= 0x7a; // (`a` - `z`)
+    }
+
+    function isPrintable(bytes1 char) internal pure virtual returns (bool) {
+        return char >= 0x20 && char <= 0x7e; // (` ` - `~`)
+    }
+
+    function isSeparator(bytes1 char) internal pure virtual returns (bool) {
+        return char == 0x20 // space (` `)
+            || char == 0x2d // hyphen (`-`)
+            || char == 0x5f; // underscore (`_`)
+    }
+
+    function isWhitespace(bytes1 char) internal pure virtual returns (bool) {
+        // horizontal tab (`\t`), line feed (`\n`), vertical tab (`\v`),
+        // form feed (`\f`), carriage return (`\r`), or space (` `)
+        return (char >= 0x09 && char <= 0x0d) || char == 0x20;
+    }
+
+    function toUpperCase(bytes1 char) internal pure returns (bytes1) {
+        return isLowerCase(char) ? bytes1(uint8(char) - 0x20) : char;
+    }
+
+    function toLowerCase(bytes1 char) internal pure returns (bytes1) {
+        return isUpperCase(char) ? bytes1(uint8(char) + 0x20) : char;
     }
 
     function coalesce(uint256 x, uint256 y) internal pure returns (uint256 z) {
         assembly ("memory-safe") {
             z := or(x, mul(y, iszero(x)))
-        }
-    }
-
-    function ternary(bool condition, uint256 x, uint256 y) internal pure returns (uint256 z) {
-        assembly ("memory-safe") {
-            z := xor(x, mul(xor(x, y), iszero(condition)))
         }
     }
 
@@ -76,13 +105,52 @@ abstract contract BaseTest is Test {
             z := mul(sub(x, y), gt(x, y))
         }
     }
+
+    function abs(int256 x) internal pure returns (uint256 z) {
+        unchecked {
+            uint256 mask = uint256(x >> 255);
+            z = (uint256(x) + mask) ^ mask;
+        }
+    }
+
+    function log10(uint256 x) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            if iszero(lt(x, 100000000000000000000000000000000000000)) {
+                x := div(x, 100000000000000000000000000000000000000)
+                r := 38
+            }
+            if iszero(lt(x, 100000000000000000000)) {
+                x := div(x, 100000000000000000000)
+                r := add(r, 20)
+            }
+            if iszero(lt(x, 10000000000)) {
+                x := div(x, 10000000000)
+                r := add(r, 10)
+            }
+            if iszero(lt(x, 100000)) {
+                x := div(x, 100000)
+                r := add(r, 5)
+            }
+            r := add(r, add(gt(x, 9), add(gt(x, 99), add(gt(x, 999), gt(x, 9999)))))
+        }
+    }
+
+    function log256(uint256 x) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := shl(7, gt(x, 0xffffffffffffffffffffffffffffffff))
+            r := or(r, shl(6, gt(shr(r, x), 0xffffffffffffffff)))
+            r := or(r, shl(5, gt(shr(r, x), 0xffffffff)))
+            r := or(r, shl(4, gt(shr(r, x), 0xffff)))
+            r := or(shr(3, r), gt(shr(r, x), 0xff))
+        }
+    }
 }
 
 abstract contract BytesUtilsTest is BaseTest {
     function boundAscii(bytes memory subject) internal pure returns (bytes memory result) {
         result = new bytes(subject.length);
         for (uint256 i = 0; i < subject.length; ++i) {
-            result[i] = bytes1(uint8(0x20 + (uint8(subject[i]) % 0x5f)));
+            result[i] = bytes1(32 + (uint8(subject[i]) % 95));
         }
     }
 
@@ -130,20 +198,21 @@ abstract contract BytesUtilsTest is BaseTest {
 }
 
 abstract contract StringUtilsTest is BaseTest {
-    function boundAscii(bytes memory subject) internal pure returns (string memory) {
-        bytes memory buffer = new bytes(subject.length);
-        for (uint256 i = 0; i < subject.length; ++i) {
-            buffer[i] = bytes1(uint8(0x20 + (uint8(subject[i]) % 0x5f)));
+    function boundAscii(string memory subject) internal pure returns (string memory) {
+        bytes memory buffer = bytes(subject);
+        bytes memory result = new bytes(buffer.length);
+        for (uint256 i = 0; i < result.length; ++i) {
+            result[i] = bytes1(32 + (uint8(buffer[i]) % 95));
         }
-        return string(buffer);
+        return string(result);
     }
 
     function allBytes() internal pure returns (string memory) {
-        bytes memory buffer = new bytes(256);
+        bytes memory result = new bytes(256);
         for (uint256 i = 0; i < 256; ++i) {
-            buffer[i] = bytes1(uint8(i));
+            result[i] = bytes1(uint8(i));
         }
-        return string(buffer);
+        return string(result);
     }
 
     function singleByte(uint256 value) internal pure returns (string memory) {

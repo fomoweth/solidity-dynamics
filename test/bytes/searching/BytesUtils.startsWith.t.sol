@@ -19,6 +19,10 @@ contract BytesUtilsStartsWithTest is BytesUtilsTest {
         assertTrue(BytesUtils.startsWith("abc", "abc"));
     }
 
+    function test_startsWith_noMatch() public pure {
+        assertFalse(BytesUtils.startsWith("abc", "xyz"));
+    }
+
     function test_startsWith_singleChar() public pure {
         assertTrue(BytesUtils.startsWith("abc", "a"));
         assertFalse(BytesUtils.startsWith("abc", "b"));
@@ -45,7 +49,6 @@ contract BytesUtilsStartsWithTest is BytesUtilsTest {
         assertTrue(BytesUtils.startsWith(bytes.concat(needle, "tail"), needle));
         assertTrue(BytesUtils.startsWith(needle, needle));
         assertFalse(BytesUtils.startsWith(bytes.concat("head", needle), needle));
-        // 33 bytes: differs from the 32-byte needle only past the first word.
         assertFalse(BytesUtils.startsWith(needle, bytes.concat(needle, "X")));
     }
 

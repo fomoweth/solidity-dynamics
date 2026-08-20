@@ -111,8 +111,8 @@ contract StringUtilsContainsTest is StringUtilsTest {
         }
     }
 
-    function test_fuzz_contains(string memory subject, string memory needle) public pure {
-        assertEq(StringUtils.contains(subject, needle), vm.contains(subject, needle), "result differs from vm.contains");
+    function test_fuzz_contains_agreesWithCheatcode(string memory subject, string memory needle) public pure {
+        assertEq(StringUtils.contains(subject, needle), vm.contains(subject, needle), "result differs from cheatcode");
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -146,7 +146,7 @@ contract StringUtilsContainsTest is StringUtilsTest {
     {
         if (bytes(needle).length == 0) return true;
         for (uint256 i = min(offset, bytes(subject).length); i + bytes(needle).length <= bytes(subject).length; ++i) {
-            if (matchesAt(bytes(subject), bytes(needle), i)) return true;
+            if (matchesAt(subject, needle, i)) return true;
         }
         return false;
     }

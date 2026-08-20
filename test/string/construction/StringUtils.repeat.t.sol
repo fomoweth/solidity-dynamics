@@ -43,14 +43,12 @@ contract StringUtilsRepeatTest is StringUtilsTest {
     }
 
     function test_repeat_outputLength() public pure {
-        string memory result = StringUtils.repeat("abc", 7);
-        assertEq(bytes(result).length, 21);
+        assertEq(bytes(StringUtils.repeat("abc", 7)).length, 21);
     }
 
     function test_repeat_longerThanWord() public pure {
         string memory subject = "0123456789abcdef0123456789abcdef"; // 32 bytes
-        string memory result = StringUtils.repeat(subject, 3);
-        assertEq(result, string.concat(subject, subject, subject));
+        assertEq(StringUtils.repeat(subject, 3), string.concat(subject, subject, subject));
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -69,6 +67,7 @@ contract StringUtilsRepeatTest is StringUtilsTest {
         uint256 count = bound(n, 0, 32);
         uint256 expectedLength = bytes(subject).length * count;
         string memory result = StringUtils.repeat(subject, count);
+
         assertEq(bytes(result).length, expectedLength, "output length does not equal subject length times count");
     }
 
@@ -110,6 +109,7 @@ contract StringUtilsRepeatTest is StringUtilsTest {
         uint256 count = bound(n, 0, 32);
         string memory expected = referenceRepeat(subject, count);
         string memory result = StringUtils.repeat(subject, count);
+
         assertEq(result, expected, "result differs from reference implementation");
         assertMemoryInvariants(result);
     }

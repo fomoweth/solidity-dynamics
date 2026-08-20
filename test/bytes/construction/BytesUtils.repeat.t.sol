@@ -43,14 +43,12 @@ contract BytesUtilsRepeatTest is BytesUtilsTest {
     }
 
     function test_repeat_outputLength() public pure {
-        bytes memory result = BytesUtils.repeat("abc", 7);
-        assertEq(result.length, 21);
+        assertEq(BytesUtils.repeat("abc", 7).length, 21);
     }
 
     function test_repeat_longerThanWord() public pure {
         bytes memory subject = "0123456789abcdef0123456789abcdef"; // 32 bytes
-        bytes memory result = BytesUtils.repeat(subject, 3);
-        assertEq(result, bytes.concat(subject, subject, subject));
+        assertEq(BytesUtils.repeat(subject, 3), bytes.concat(subject, subject, subject));
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

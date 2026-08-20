@@ -176,13 +176,17 @@ contract StringUtilsReplaceTest is StringUtilsTest {
         assertEq(result, subject, "replacement without a match changed subject");
     }
 
-    function test_fuzz_replace(string memory subject, string memory needle, string memory replacement) public pure {
+    function test_fuzz_replace_agreesWithCheatcode(
+        string memory subject,
+        string memory needle,
+        string memory replacement
+    ) public pure {
         vm.assume(bytes(needle).length != 0);
 
         string memory expected = vm.replace(subject, needle, replacement);
         string memory result = StringUtils.replace(subject, needle, replacement);
 
-        assertEq(result, expected, "result differs from vm.replace");
+        assertEq(result, expected, "result differs from cheatcode");
         assertMemoryInvariants(result);
     }
 
@@ -221,6 +225,7 @@ contract StringUtilsReplaceTest is StringUtilsTest {
 
         if (needleLength == 0) {
             result = new bytes(subjectLength + (subjectLength + 1) * replacementLength);
+
             uint256 offset = 0;
 
             for (uint256 i = 0; i < subjectLength; ++i) {

@@ -41,10 +41,10 @@ contract BytesUtilsJoinTest is BytesUtilsTest {
 
     function test_join_longStrings() public pure {
         bytes[] memory segments = arrayify(
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 64 chars
-            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", // 64 chars
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", // 64 chars
-            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" // 64 chars
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         );
         bytes memory delimiter = "----------------------------------------------------------------";
 

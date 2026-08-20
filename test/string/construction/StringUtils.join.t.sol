@@ -43,10 +43,10 @@ contract StringUtilsJoinTest is StringUtilsTest {
 
     function test_join_longStrings() public pure {
         string[] memory segments = arrayify(
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // 64 chars
-            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", // 64 chars
-            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", // 64 chars
-            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" // 64 chars
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         );
         string memory delimiter = "----------------------------------------------------------------";
 
@@ -106,7 +106,6 @@ contract StringUtilsJoinTest is StringUtilsTest {
 
         string memory name = segments[1];
         assertEq(name, "vortex");
-        assertEq(capitalize(name), "Vortex");
 
         uint256 length = segments.length - 2;
         for (uint256 i = 0; i < length; ++i) {
