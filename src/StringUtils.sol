@@ -1523,10 +1523,6 @@ library StringUtils {
         }
     }
 
-    /*///////////////////////////////////////////////////////////////////////////////////////////////////////
-                                            INSPECTION
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////*/
-
     /// @notice Determines whether a string contains a substring at or after a specified byte offset.
     /// @dev An empty substring matches if the starting offset is less than or equal to the string's byte length.
     /// @param subject The string to search within.

@@ -647,10 +647,6 @@ library BytesUtils {
         }
     }
 
-    /*///////////////////////////////////////////////////////////////////////////////////////////////////////
-                                            INSPECTION
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////*/
-
     /// @notice Determines whether a byte array contains a byte sequence at or after a specified byte offset.
     /// @dev An empty byte sequence matches if the starting offset is less than or equal to the byte array's length.
     /// @param subject The byte array to search within.
