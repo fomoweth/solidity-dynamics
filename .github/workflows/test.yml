@@ -1,38 +1,42 @@
 name: Test
 
 on:
-    push:
-    pull_request:
-    workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 
-permissions: {}
-
-env:
-    FOUNDRY_PROFILE: ci
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-    test:
-        name: Foundry project
-        runs-on: ubuntu-latest
-        permissions:
-            contents: read
-        steps:
-            - uses: actions/checkout@v5
-              with:
-                  persist-credentials: false
-                  submodules: recursive
+  test:
+    name: Foundry build and test
+    runs-on: ubuntu-latest
 
-            - name: Install Foundry
-              uses: foundry-rs/foundry-toolchain@v1
+    permissions:
+      contents: read
 
-            - name: Show Forge version
-              run: forge --version
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          submodules: recursive
 
-            - name: Run Forge fmt
-              run: forge fmt --check
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
 
-            - name: Run Forge build
-              run: forge build --sizes
+      - name: Show Forge version
+        run: forge --version
 
-            - name: Run Forge tests
-              run: forge test -vvv
+      - name: Run Forge fmt
+        run: forge fmt --check
+
+      - name: Run Forge build
+        run: forge build --sizes
+
+      - name: Run Forge tests
+        run: forge test -vvv
+        env:
+          FOUNDRY_PROFILE: ci

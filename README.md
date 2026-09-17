@@ -1,174 +1,144 @@
 # solidity-dynamics
 
 [![Test](https://github.com/fomoweth/solidity-dynamics/actions/workflows/test.yml/badge.svg)](https://github.com/fomoweth/solidity-dynamics/actions/workflows/test.yml)
-[![Solidity](https://img.shields.io/badge/solidity-%3E%3D0.8.25-2b247c)](https://docs.soliditylang.org/en/v0.8.25)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Docs](https://img.shields.io/badge/Docs-online-blue)](https://fomoweth.github.io/solidity-dynamics)
+[![Solidity](https://img.shields.io/badge/Solidity-%5E0.8.25-2b247c)](https://docs.soliditylang.org/en/v0.8.25)
+[![License: MIT](https://img.shields.io/badge/License-MIT-orange.svg)](https://opensource.org/licenses/MIT)
 
-Gas-efficient Solidity utility libraries for working with strings and dynamic byte arrays.
-
-`solidity-dynamics` provides low-level utilities for converting, formatting, constructing, slicing, searching, and comparing strings and byte arrays. The implementation favors memory-efficient Yul and modern EVM primitives such as `MCOPY` while exposing conventional Solidity library APIs.
+> Low-level Solidity utilities for string and bytes manipulation.
 
 ## Table of Contents
 
 - [Overview](#overview)
-  - [Features](#features)
-  - [Design](#design)
-  - [Repository Structure](#repository-structure)
+- [Features](#features)
+- [Requirements](#requirements)
 - [Installation](#installation)
 - [Usage](#usage)
   - [String Utilities](#string-utilities)
-  - [Byte Utilities](#byte-utilities)
+  - [Bytes Utilities](#bytes-utilities)
   - [Advanced Examples](#advanced-examples)
-- [Testing](#testing)
+- [Design Notes](#design-notes)
+  - [Byte-Oriented Semantics](#byte-oriented-semantics)
+  - [ASCII Semantics](#ascii-semantics)
+  - [Memory Model](#memory-model)
+  - [EVM Compatibility](#evm-compatibility)
 - [API Reference](#api-reference)
-  - [StringUtils.sol](#stringutilssol)
-  - [BytesUtils.sol](#bytesutilssol)
+- [Development](#development)
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
 
 ## Overview
 
-`solidity-dynamics` consists of two standalone utility libraries:
+`solidity-dynamics` provides low-level utilities for working with `string` and `bytes` values in Solidity.
 
-- [`StringUtils`](./src/StringUtils.sol) provides conversion, case formatting, construction, slicing, searching, and comparison utilities for Solidity strings.
-- [`BytesUtils`](./src/BytesUtils.sol) provides construction, slicing, searching, and comparison utilities for dynamic byte arrays.
+The library exposes two primary components:
 
-String offsets, lengths, and search indices are byte-based. Functions that perform ASCII case conversion operate only on ASCII letters unless documented otherwise.
+- [StringUtils](src/StringUtils.sol) — String conversion, formatting, searching, slicing, comparison, and manipulation.
+- [BytesUtils](src/BytesUtils.sol) — Dynamic byte-array operations with equivalent semantics where applicable.
 
-### Features
+The implementation uses byte-oriented operations, direct memory manipulation, and modern EVM primitives.
 
-- Decimal and hexadecimal conversion for integers, addresses, and byte arrays
-- `camelCase`, `PascalCase`, `CONSTANT_CASE`, `snake_case`, and `kebab-case` formatting
-- ASCII lowercase and uppercase conversion
-- Concatenation, joining, splitting, replacement, repetition, and padding
-- Byte-oriented slicing, truncation, and whitespace trimming
-- Forward, backward, and multi-match substring searching
-- Prefix, suffix, and containment checks
-- Equality and lexicographical comparison
-- Parallel string and dynamic byte-array APIs where operations are semantically equivalent
-- Memory-safe assembly implementations with direct output construction
-- Fuzz and differential testing with Foundry
+## Features
 
-### Design
+- **String conversion** — Decimal and hexadecimal formatting for integers, addresses, and byte arrays.
+- **Case formatting** — `camelCase`, `PascalCase`, `CONSTANT_CASE`, `snake_case`, and `kebab-case`.
+- **Construction** — Concatenation, joining, replacement, repetition, and padding.
+- **Searching** — Forward, backward, and multi-match substring searches.
+- **Splitting and slicing** — Delimiter-based splitting and byte-oriented slicing.
+- **Manipulation** — Truncation, trimming, and other in-memory transformations.
+- **Comparison** — Equality, prefix, suffix, containment, and lexicographical comparison.
+- **Parallel APIs** — Equivalent operations for `string` and `bytes` where their semantics align.
+- **Low-level implementation** — Direct memory construction, memory-safe assembly, and `MCOPY`-based copying.
 
-The libraries operate on byte sequences rather than Unicode code points.
+## Requirements
 
-For `string` operations:
+- [Foundry](https://getfoundry.sh/)
+- Solidity `^0.8.25`
+- Cancun EVM or later
 
-- offsets, lengths, and indices are expressed in bytes rather than Unicode characters;
-- slicing may therefore split a multi-byte UTF-8 sequence;
-- `toLowerCase` and `toUpperCase` modify ASCII letters only;
-- `formatCase` accepts printable ASCII (`0x20` through `0x7e`), normalizes spaces, hyphens, and underscores as separators, and preserves other punctuation;
-- whitespace trimming recognizes ASCII horizontal tab, line feed, vertical tab, form feed, carriage return, and space.
-
-Functions that allocate output construct it directly at the free-memory pointer where practical. `truncate` is an exception: it shortens the original memory object in place and therefore aliases the input.
-
-### Repository Structure
-
-```text
-solidity-dynamics/
-├── src/
-│   ├── BytesUtils.sol
-│   └── StringUtils.sol
-├── test/
-│   ├── bytes/
-│   │   ├── comparison/
-│   │   ├── construction/
-│   │   ├── searching/
-│   │   └── slicing/
-│   ├── string/
-│   │   ├── comparison/
-│   │   ├── construction/
-│   │   ├── conversion/
-│   │   ├── formatting/
-│   │   ├── searching/
-│   │   └── slicing/
-│   └── Base.t.sol
-└── foundry.toml
-```
+> [!IMPORTANT]
+> `solidity-dynamics` uses Cancun EVM features such as `MCOPY` and must target the Cancun EVM or later.
 
 ## Installation
 
-> [!IMPORTANT]
-> This library uses Cancun EVM features such as `MCOPY` and must be compiled for the Cancun EVM or later. When using Foundry, set `evm_version = "cancun"` or later.
+Install the library with Foundry:
 
-To install with [Foundry](https://www.getfoundry.sh/introduction/installation):
-
-```sh
+```bash
 forge install fomoweth/solidity-dynamics
 ```
 
-Alternatively, to install as a [Git submodule](https://git-scm.com/docs/git-submodule):
-
-```sh
-git submodule add https://github.com/fomoweth/solidity-dynamics.git lib/solidity-dynamics
-```
-
-Add the following remapping:
+Add the following remapping to `foundry.toml` or `remappings.txt`:
 
 ```text
 solidity-dynamics/=lib/solidity-dynamics/src/
 ```
 
-Then import the libraries as needed:
+Import the utilities you need:
 
 ```solidity
-import {BytesUtils} from "solidity-dynamics/BytesUtils.sol";
 import {StringUtils} from "solidity-dynamics/StringUtils.sol";
+import {BytesUtils} from "solidity-dynamics/BytesUtils.sol";
 ```
 
 ## Usage
 
 ### String Utilities
 
-```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
-
-import {StringUtils} from "solidity-dynamics/StringUtils.sol";
-
-contract Example {
-    using StringUtils for string;
-
-    function capitalize(string memory subject) external pure returns (string memory) {
-        return string.concat(subject.slice(0, 1).toUpperCase(), subject.slice(1));
-    }
-
-    function normalize(string memory subject) external pure returns (string memory) {
-        return subject.trim().formatCase(StringUtils.CaseType.Camel);
-    }
-}
-```
-
-### Byte Utilities
+Use `StringUtils` as an extension library for `string` values:
 
 ```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+using StringUtils for string;
 
-import {BytesUtils} from "solidity-dynamics/BytesUtils.sol";
+string memory value = "  hello solidity  ";
 
-contract Example {
-    using BytesUtils for bytes;
-    using BytesUtils for bytes[];
-
-    function contains(bytes memory subject, bytes memory needle) external pure returns (bool) {
-        return subject.contains(needle);
-    }
-
-    function concat(bytes[] memory segments) external pure returns (bytes memory) {
-        return segments.concat();
-    }
-
-    function slice(bytes memory subject, uint256 offset, uint256 length) external pure returns (bytes memory) {
-        return subject.slice(offset, length);
-    }
-}
+string memory trimmed = value.trim(); // "hello solidity"
+bool contains = value.contains("solidity"); // true
+string memory sliced = value.slice(8, 8); // "solidity"
 ```
+
+Convert common Solidity values to their string representations:
+
+```solidity
+string memory decimal = StringUtils.toString(12345); // "12345"
+string memory hexadecimal = StringUtils.toHexString(0x1234); // "0x1234"
+string memory self = StringUtils.toHexString(address(this));
+```
+
+Format strings into common ASCII case conventions:
+
+```solidity
+using StringUtils for string;
+
+string memory value = "hello solidity";
+
+string memory camel = value.formatCase(StringUtils.CaseType.Camel); // "helloSolidity"
+string memory pascal = value.formatCase(StringUtils.CaseType.Pascal); // "HelloSolidity"
+string memory const = value.formatCase(StringUtils.CaseType.Constant); // "HELLO_SOLIDITY"
+string memory snake = value.formatCase(StringUtils.CaseType.Snake); // "hello_solidity"
+string memory kebab = value.formatCase(StringUtils.CaseType.Kebab); // "hello-solidity"
+```
+
+### Bytes Utilities
+
+Use `BytesUtils` as an extension library for dynamic byte arrays:
+
+```solidity
+using BytesUtils for bytes;
+
+bytes memory value = hex"deadbeef";
+
+bool contains = value.contains(hex"beef"); // true
+bytes memory sliced = value.slice(0, 2); // hex"dead"
+bytes memory repeated = value.repeat(2); // hex"deadbeefdeadbeef"
+```
+
+`BytesUtils` provides the corresponding low-level operations directly on dynamic byte arrays without requiring conversion to `string`.
 
 ### Advanced Examples
 
-Parsing a structured ERC-7579 smart account ID using `split` and `join`.
+#### Token-Oriented
+
+A structured ERC-7579 smart account ID can be parsed token-by-token using `split` and `join`:
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -196,11 +166,9 @@ library AccountIdLib {
         require(bytes(vendor = segments[0]).length != 0);
         require(bytes(name = segments[1]).length != 0);
 
-        unchecked {
-            uint256 length = segments.length - 2;
-            for (uint256 i = 0; i < length; ++i) {
-                segments[i] = segments[i + 2];
-            }
+        uint256 length = segments.length - 2;
+        for (uint256 i = 0; i < length; ++i) {
+            segments[i] = segments[i + 2];
         }
 
         assembly ("memory-safe") {
@@ -212,7 +180,9 @@ library AccountIdLib {
 }
 ```
 
-Parsing a structured ERC-7579 smart account ID using `indexOf` and `slice`.
+#### Offset-Oriented
+
+The same structure can be parsed using byte offsets with `indexOf` and `slice`:
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -250,185 +220,93 @@ contract ERC7579Account is EIP712 {
 }
 ```
 
-## Testing
+## Design Notes
 
-Run the complete test suite:
+### Byte-Oriented Semantics
 
-```sh
-forge test
-```
+`solidity-dynamics` treats Solidity strings as byte sequences rather than Unicode code points or grapheme clusters.
 
-Run with detailed traces:
+Indices, offsets, and lengths used by searching, slicing, and related operations refer to byte positions. As a result, slicing a UTF-8 encoded string at arbitrary offsets may split a multi-byte character and produce invalid UTF-8.
 
-```sh
-forge test -vvv
-```
+This behavior follows Solidity's underlying representation of `string` as a dynamically sized byte sequence and avoids the additional decoding required for Unicode-aware operations.
 
-Run a specific test file:
+### ASCII Semantics
 
-```sh
-forge test --match-path test/string/formatting/StringUtils.formatCase.t.sol
-```
+Case conversion and formatting operate on ASCII characters.
 
-Run a specific test contract:
+Functions such as `toLowerCase`, `toUpperCase`, and `formatCase` do not perform Unicode-aware or locale-sensitive case conversion. Non-ASCII bytes are not interpreted as Unicode characters.
 
-```sh
-forge test --match-contract StringUtilsFormatCaseTest
-```
+Whitespace-sensitive operations such as `trim` use a defined set of ASCII whitespace characters rather than Unicode whitespace semantics.
 
-Run a specific test:
+### Memory Model
 
-```sh
-forge test --match-test test_fuzz_formatCase_differential
-```
+Most transformation operations allocate and return new memory values without modifying their inputs.
 
-Combine filters:
+Some operations intentionally reuse existing memory when their semantics permit it. In particular, `truncate` shortens a dynamic memory value in place by updating its length, so the returned value aliases the same memory object as the input.
 
-```sh
-forge test \
-    --match-contract StringUtilsFormatCaseTest \
-    --match-test test_fuzz_formatCase_differential
-```
+Callers should account for this behavior when retaining multiple references to the same memory value.
+
+### EVM Compatibility
+
+The implementation uses Cancun EVM features, including [`MCOPY` (EIP-5656)](https://eips.ethereum.org/EIPS/eip-5656), for direct memory-to-memory copying.
+
+Projects consuming `solidity-dynamics` must compile for the Cancun EVM or later.
 
 ## API Reference
 
-The tables below summarize the available APIs. See the source-level NatSpec in [`StringUtils.sol`](./src/StringUtils.sol) and [`BytesUtils.sol`](./src/BytesUtils.sol) for detailed behavior and edge-case semantics.
+The complete API reference, including all functions, overloads, and NatSpec documentation, is available in the generated documentation:
 
-### StringUtils.sol
+[View the API documentation](https://fomoweth.github.io/solidity-dynamics)
 
-#### Conversion
+Generate the documentation locally with:
 
-| Function                               | Description                                                                                                |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `toString(uint256)`                    | Converts an unsigned integer to its ASCII decimal representation.                                          |
-| `toString(int256)`                     | Converts a signed integer to its ASCII decimal representation.                                             |
-| `toHexString(uint256,uint256,bool)`    | Converts an unsigned integer to a fixed-width lowercase hexadecimal string with an optional `0x` prefix.   |
-| `toHexString(uint256,uint256)`         | Converts an unsigned integer to a fixed-width lowercase hexadecimal string with the `0x` prefix.           |
-| `toHexStringNoPrefix(uint256,uint256)` | Converts an unsigned integer to a fixed-width lowercase hexadecimal string without the `0x` prefix.        |
-| `toHexString(uint256,bool)`            | Converts an unsigned integer to a minimal-width lowercase hexadecimal string with an optional `0x` prefix. |
-| `toHexString(uint256)`                 | Converts an unsigned integer to a minimal-width lowercase hexadecimal string with the `0x` prefix.         |
-| `toHexStringNoPrefix(uint256)`         | Converts an unsigned integer to a minimal-width lowercase hexadecimal string without the `0x` prefix.      |
-| `toHexString(address,bool,bool)`       | Converts an address to hexadecimal with an optional `0x` prefix and optional EIP-55 checksum casing.       |
-| `toHexString(address)`                 | Converts an address to lowercase hexadecimal with the `0x` prefix and without checksum casing.             |
-| `toHexStringChecksummed(address)`      | Converts an address to hexadecimal with the `0x` prefix and EIP-55 checksum casing.                        |
-| `toHexStringNoPrefix(address)`         | Converts an address to lowercase hexadecimal without the `0x` prefix or checksum casing.                   |
-| `toHexString(bytes,bool)`              | Converts a byte array to lowercase hexadecimal with an optional `0x` prefix.                               |
-| `toHexString(bytes)`                   | Converts a byte array to lowercase hexadecimal with the `0x` prefix.                                       |
-| `toHexStringNoPrefix(bytes)`           | Converts a byte array to lowercase hexadecimal without the `0x` prefix.                                    |
-
-#### Formatting
-
-| Function                      | Description                                                  |
-| ----------------------------- | ------------------------------------------------------------ |
-| `formatCase(string,CaseType)` | Formats a string according to the specified case convention. |
-| `toLowerCase(string)`         | Converts all ASCII letters in a string to lowercase.         |
-| `toUpperCase(string)`         | Converts all ASCII letters in a string to uppercase.         |
-
-Supported case conventions:
-
-```solidity
-enum CaseType {
-    Camel,
-    Pascal,
-    Constant,
-    Snake,
-    Kebab
-}
+```bash
+forge doc
 ```
 
-#### Construction
+To generate and serve it locally:
 
-| Function                          | Description                                                                             |
-| --------------------------------- | --------------------------------------------------------------------------------------- |
-| `concat(string[])`                | Concatenates a sequence of strings.                                                     |
-| `join(string[],string)`           | Joins a sequence of strings with a delimiter between adjacent elements.                 |
-| `split(string,string)`            | Splits a string on non-overlapping occurrences of a delimiter.                          |
-| `replace(string,string,string)`   | Replaces every non-overlapping occurrence of a substring within a string.               |
-| `repeat(string,uint256)`          | Repeats a string a specified number of times.                                           |
-| `padStart(string,string,uint256)` | Left-pads a string to a minimum byte length using cyclic repetitions of a fill string.  |
-| `padEnd(string,string,uint256)`   | Right-pads a string to a minimum byte length using cyclic repetitions of a fill string. |
+```bash
+forge doc --serve
+```
 
-#### Slicing
+## Development
 
-| Function                        | Description                                                                      |
-| ------------------------------- | -------------------------------------------------------------------------------- |
-| `slice(string,uint256,uint256)` | Extracts a substring from a specified byte offset with a maximum byte length.    |
-| `slice(string,uint256)`         | Extracts a substring from a specified byte offset through the end of the string. |
-| `truncate(string,uint256)`      | Shortens a string in place to at most a specified number of bytes.               |
-| `trim(string,bool,bool)`        | Removes ASCII whitespace from the selected ends of a string.                     |
-| `trim(string)`                  | Removes leading and trailing ASCII whitespace from a string.                     |
-| `trimStart(string)`             | Removes leading ASCII whitespace from a string.                                  |
-| `trimEnd(string)`               | Removes trailing ASCII whitespace from a string.                                 |
+Clone the repository and install its dependencies:
 
-#### Searching
+```bash
+git clone https://github.com/fomoweth/solidity-dynamics.git
+cd solidity-dynamics
+forge install
+```
 
-| Function                             | Description                                                                                      |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `indexOf(string,string,uint256)`     | Finds the byte index of the first occurrence of a substring at or after a specified byte offset. |
-| `indexOf(string,string)`             | Finds the byte index of the first occurrence of a substring.                                     |
-| `lastIndexOf(string,string,uint256)` | Finds the byte index of the last occurrence of a substring at or before a specified byte offset. |
-| `lastIndexOf(string,string)`         | Finds the byte index of the last occurrence of a substring.                                      |
-| `indicesOf(string,string)`           | Finds the byte indices of all non-overlapping occurrences of a substring.                        |
-| `contains(string,string,uint256)`    | Determines whether a substring occurs at or after a specified byte offset.                       |
-| `contains(string,string)`            | Determines whether a string contains a substring.                                                |
-| `startsWith(string,string)`          | Determines whether a string begins with a substring.                                             |
-| `endsWith(string,string)`            | Determines whether a string ends with a substring.                                               |
+Build the project:
 
-#### Comparison
+```bash
+forge build
+```
 
-| Function             | Description                                           |
-| -------------------- | ----------------------------------------------------- |
-| `eq(string,string)`  | Compares two strings for byte-for-byte equality.      |
-| `cmp(string,string)` | Compares two strings lexicographically by byte value. |
+Run the test suite:
 
-### BytesUtils.sol
+```bash
+forge test
+```
 
-#### Construction
+Format the codebase:
 
-| Function                     | Description                                                                       |
-| ---------------------------- | --------------------------------------------------------------------------------- |
-| `concat(bytes[])`            | Concatenates a sequence of byte arrays.                                           |
-| `join(bytes[],bytes)`        | Joins a sequence of byte arrays with a delimiter between adjacent elements.       |
-| `split(bytes,bytes)`         | Splits a byte array on non-overlapping occurrences of a delimiter.                |
-| `replace(bytes,bytes,bytes)` | Replaces every non-overlapping occurrence of a byte sequence within a byte array. |
-| `repeat(bytes,uint256)`      | Repeats a byte array a specified number of times.                                 |
-
-#### Slicing
-
-| Function                       | Description                                                                           |
-| ------------------------------ | ------------------------------------------------------------------------------------- |
-| `slice(bytes,uint256,uint256)` | Extracts a byte array from a specified byte offset with a maximum byte length.        |
-| `slice(bytes,uint256)`         | Extracts a byte array from a specified byte offset through the end of the byte array. |
-| `truncate(bytes,uint256)`      | Shortens a byte array in place to at most a specified number of bytes.                |
-
-#### Searching
-
-| Function                           | Description                                                                                          |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `indexOf(bytes,bytes,uint256)`     | Finds the byte index of the first occurrence of a byte sequence at or after a specified byte offset. |
-| `indexOf(bytes,bytes)`             | Finds the byte index of the first occurrence of a byte sequence.                                     |
-| `lastIndexOf(bytes,bytes,uint256)` | Finds the byte index of the last occurrence of a byte sequence at or before a specified byte offset. |
-| `lastIndexOf(bytes,bytes)`         | Finds the byte index of the last occurrence of a byte sequence.                                      |
-| `indicesOf(bytes,bytes)`           | Finds the byte indices of all non-overlapping occurrences of a byte sequence.                        |
-| `contains(bytes,bytes,uint256)`    | Determines whether a byte sequence occurs at or after a specified byte offset.                       |
-| `contains(bytes,bytes)`            | Determines whether a byte array contains a byte sequence.                                            |
-| `startsWith(bytes,bytes)`          | Determines whether a byte array begins with a byte sequence.                                         |
-| `endsWith(bytes,bytes)`            | Determines whether a byte array ends with a byte sequence.                                           |
-
-#### Comparison
-
-| Function           | Description                                               |
-| ------------------ | --------------------------------------------------------- |
-| `eq(bytes,bytes)`  | Compares two byte arrays for byte-for-byte equality.      |
-| `cmp(bytes,bytes)` | Compares two byte arrays lexicographically by byte value. |
+```bash
+forge fmt
+```
 
 ## Acknowledgements
 
-This project was inspired and informed by:
+Parts of the library’s design and implementation were inspired by established Solidity utility libraries in the broader ecosystem.
 
-- [OpenZeppelin Contracts](https://github.com/OpenZeppelin/openzeppelin-contracts) — [`Strings.sol`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Strings.sol) and [`Bytes.sol`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Bytes.sol)
-- [Solady](https://github.com/Vectorized/solady) — [`LibString.sol`](https://github.com/Vectorized/solady/blob/main/src/utils/LibString.sol) and [`LibBytes.sol`](https://github.com/Vectorized/solady/blob/main/src/utils/LibBytes.sol)
+- [`Strings.sol`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Strings.sol) from [OpenZeppelin Contracts](https://github.com/OpenZeppelin/openzeppelin-contracts)
+- [`Bytes.sol`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Bytes.sol) from [OpenZeppelin Contracts](https://github.com/OpenZeppelin/openzeppelin-contracts)
+- [`LibString.sol`](https://github.com/Vectorized/solady/blob/main/src/utils/LibString.sol) from [Solady](https://github.com/Vectorized/solady)
+- [`LibBytes.sol`](https://github.com/Vectorized/solady/blob/main/src/utils/LibBytes.sol) from [Solady](https://github.com/Vectorized/solady)
 
 ## License
 
-Licensed under the [MIT License](./LICENSE).
+This project is licensed under the [MIT License](LICENSE).
